@@ -28,6 +28,7 @@ const path = require("path");
 const serveStatic = require("serve-static");
 const { readFileSync } = require("fs");
 const checkoutRatesRouter = require("./backend/routers/checkoutratesrouter");
+const configurationRouter = require("./backend/routers/configurationRouter");
 
 require("dotenv").config();
 const fdkExtension = require("./backend/fdk");
@@ -71,6 +72,7 @@ const partnerApiRoutes = fdkExtension.partnerApiRoutes;
 // remember to also add a proxy rule for them in /frontend/vite.config.js
 // NOTE: Mount specific /api/* routes BEFORE the general /api route
 app.use("/api/checkout", checkoutRatesRouter);
+app.use("/api/configurations", configurationRouter);
 app.use("/api", platformApiRoutes);
 app.use("/apipartner", partnerApiRoutes);
 app.use("/apibasic", basicRouter);

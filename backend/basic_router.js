@@ -25,8 +25,8 @@ const organizationId = require("./constant").organizationId;
 console.log("organizationId", organizationId);
 basicRouter.get("/test_basic_route", async function view(req, res, next) {
   try {
-    const partnerClient = await fdkExtension.getPartnerClient();
-    const response = await partnerClient.logistics.getCourierPartnerSchemes({
+    const platformClient = await fdkExtension.getPlatformClient();
+    const response = await platformClient.logistics.getCourierPartnerSchemes({
       organizationId: organizationId,
     });
     console.log(JSON.stringify(response));

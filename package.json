@@ -10,7 +10,8 @@
     "read-storage": "node backend/readStorage.js",
     "log-storage": "node backend/storageLogger.js",
     "log-storage:clear": "node backend/storageLogger.js --clear",
-    "log-storage:once": "node backend/storageLogger.js --no-watch"
+    "log-storage:once": "node backend/storageLogger.js --no-watch",
+    "setup:config-table": "node backend/createConfigTable.js"
   },
   "nodemonConfig": {
     "ignore": [

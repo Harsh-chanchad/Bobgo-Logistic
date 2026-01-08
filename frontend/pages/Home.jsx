@@ -116,6 +116,24 @@ export const Home = () => {
             This is an example extension home page user interface.
           </div>
 
+          <div style={{ marginBottom: "20px" }}>
+            <a
+              href={`/company/${company_id}/configuration`}
+              style={{
+                padding: "10px 20px",
+                backgroundColor: "#2874f0",
+                color: "white",
+                textDecoration: "none",
+                borderRadius: "4px",
+                display: "inline-block",
+                fontSize: "14px",
+                fontWeight: "bold",
+              }}
+            >
+              📝 Manage Configuration
+            </a>
+          </div>
+
           <div className="section">
             <div className="heading">
               <span>Example {isApplicationLaunch() ? 'Application API' : 'Platform API'}</span> :
