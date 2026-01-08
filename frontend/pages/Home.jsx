@@ -13,19 +13,24 @@ const EXAMPLE_MAIN_URL = window.location.origin;
 export const Home = () => {
   const [pageLoading, setPageLoading] = useState(false);
   const [productList, setProductList] = useState([]);
+  const [courierSchemes, setCourierSchemes] = useState(null);
+  const [schemesLoading, setSchemesLoading] = useState(false);
+  const [servicePlan, setServicePlan] = useState(null);
+  const [planLoading, setPlanLoading] = useState(false);
   const DOC_URL_PATH = "/help/docs/sdk/latest/platform/company/catalog/#getProducts";
   const DOC_APP_URL_PATH = "/help/docs/sdk/latest/platform/application/catalog#getAppProducts";
   const { application_id, company_id } = useParams();
-  const documentationUrl ='https://api.fynd.com'
-  
+  const documentationUrl = 'https://api.fynd.com'
+
   useEffect(() => {
     isApplicationLaunch() ? fetchApplicationProducts() : fetchProducts();
+    fetchCourierPartnerSchemes();
   }, [application_id]);
 
   const fetchProducts = async () => {
     setPageLoading(true);
     try {
-      const { data } = await axios.get(urlJoin(EXAMPLE_MAIN_URL, '/api/products'),{
+      const { data } = await axios.get(urlJoin(EXAMPLE_MAIN_URL, '/api/products'), {
         headers: {
           "x-company-id": company_id,
         }
@@ -41,7 +46,7 @@ export const Home = () => {
   const fetchApplicationProducts = async () => {
     setPageLoading(true);
     try {
-      const { data } = await axios.get(urlJoin(EXAMPLE_MAIN_URL, `/api/products/application/${application_id}`),{
+      const { data } = await axios.get(urlJoin(EXAMPLE_MAIN_URL, `/api/products/application/${application_id}`), {
         headers: {
           "x-company-id": company_id,
         }
@@ -53,7 +58,35 @@ export const Home = () => {
       setPageLoading(false);
     }
   };
-  
+
+  const fetchCourierPartnerSchemes = async () => {
+    setSchemesLoading(true);
+    try {
+      const { data } = await axios.get(urlJoin(EXAMPLE_MAIN_URL, '/apibasic/test_basic_route'));
+      setCourierSchemes(data);
+      console.log("Courier Partner Schemes:", data);
+    } catch (e) {
+      console.error("Error fetching courier partner schemes:", e);
+      setCourierSchemes({ error: e.message });
+    } finally {
+      setSchemesLoading(false);
+    }
+  };
+
+  const fetchServicePlan = async () => {
+    setPlanLoading(true);
+    try {
+      const { data } = await axios.post(urlJoin(EXAMPLE_MAIN_URL, '/api/checkout/getServicePlan'));
+      setServicePlan(data);
+      console.log("Service Plan Response:", data);
+    } catch (e) {
+      console.error("Error fetching service plan:", e);
+      setServicePlan({ error: e.message });
+    } finally {
+      setPlanLoading(false);
+    }
+  };
+
 
   const productProfileImage = (media) => {
     if (!media || !media.length) {
@@ -92,10 +125,68 @@ export const Home = () => {
             </div>
             <div className="description">
               This is an illustrative Platform API call to fetch the list of products
-              in this company. Check your extension folder’s 'server.js'
+              in this company. Check your extension folder's 'server.js'
               file to know how to call Platform API and start calling API you
               require.
             </div>
+          </div>
+
+          <div className="section">
+            <div className="heading">
+              <span>Courier Partner Schemes API</span> :
+              <span> /apibasic/test_basic_route</span>
+            </div>
+            <div className="description">
+              This fetches courier partner schemes using the Partner API.
+            </div>
+            {schemesLoading ? (
+              <div className="loader" style={{ marginTop: '10px' }}>
+                <img src={loaderGif} alt="loader GIF" style={{ width: '30px', height: '30px' }} />
+              </div>
+            ) : (
+              <div style={{ marginTop: '10px', padding: '10px', backgroundColor: '#f5f5f5', borderRadius: '4px' }}>
+                <pre style={{ margin: 0, fontSize: '12px', overflow: 'auto' }}>
+                  {courierSchemes ? JSON.stringify(courierSchemes, null, 2) : 'No data available'}
+                </pre>
+              </div>
+            )}
+          </div>
+
+          <div className="section">
+            <div className="heading">
+              <span>Checkout Service Plan API</span> :
+              <span> POST /api/checkout/getServicePlan</span>
+            </div>
+            <div className="description">
+              This endpoint returns service plan information. Click the button below to test it.
+            </div>
+            <button
+              onClick={fetchServicePlan}
+              disabled={planLoading}
+              style={{
+                marginTop: '10px',
+                padding: '8px 16px',
+                backgroundColor: '#2874f0',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: planLoading ? 'not-allowed' : 'pointer',
+                opacity: planLoading ? 0.6 : 1
+              }}
+            >
+              {planLoading ? 'Loading...' : 'Test Service Plan API'}
+            </button>
+            {planLoading ? (
+              <div className="loader" style={{ marginTop: '10px' }}>
+                <img src={loaderGif} alt="loader GIF" style={{ width: '30px', height: '30px' }} />
+              </div>
+            ) : servicePlan ? (
+              <div style={{ marginTop: '10px', padding: '10px', backgroundColor: '#f5f5f5', borderRadius: '4px' }}>
+                <pre style={{ margin: 0, fontSize: '12px', overflow: 'auto' }}>
+                  {JSON.stringify(servicePlan, null, 2)}
+                </pre>
+              </div>
+            ) : null}
           </div>
 
           <div>

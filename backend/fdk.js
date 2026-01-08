@@ -1,12 +1,32 @@
-const sqlite3 = require('sqlite3').verbose();
+const sqlite3 = require("sqlite3").verbose();
 const { setupFdk } = require("@gofynd/fdk-extension-javascript/express");
-const { SQLiteStorage } = require("@gofynd/fdk-extension-javascript/express/storage");
-const sqliteInstance = new sqlite3.Database('session_storage.db');
-const webhookHandler = require('./webhook_routes');
+const {
+  SQLiteStorage,
+} = require("@gofynd/fdk-extension-javascript/express/storage");
 
+// Initialize SQLite database with logging
+const sqliteInstance = new sqlite3.Database("session_storage.db", (err) => {
+  if (err) {
+    console.error("SQLite Database Connection Error:", err);
+  } else {
+    console.log(
+      "✅ SQLite Database connected successfully: session_storage.db"
+    );
+  }
+});
+
+// Log all database operations
+sqliteInstance.on("trace", (sql) => {
+  console.log("📊 SQLite Query:", sql);
+});
+
+const webhookHandler = require("./webhook_routes");
+const handleShipmentCreateEvent = require("./controller/handleShipmentreateEvent");
+const handleShipmentUpdateEvent = require("./controller/handleShipmentUpdateEvent.js");
+const handleExtensionInstall = require("./controller/handleExtensionInstall.js");
 /**
- * This module sets up an FDK (Fynd Development Kit) extension using the `setupFdk` function from the 
- * `@gofynd/fdk-extension-javascript/express` package. It configures the extension with necessary 
+ * This module sets up an FDK (Fynd Development Kit) extension using the `setupFdk` function from the
+ * `@gofynd/fdk-extension-javascript/express` package. It configures the extension with necessary
  * credentials, storage, and webhook handlers.
  *
  * Parameters:
@@ -35,40 +55,85 @@ const webhookHandler = require('./webhook_routes');
  * - Any errors related to database connection or invalid configuration will be raised during setup.
  */
 const fdkExtension = setupFdk({
-    api_key: process.env.EXTENSION_API_KEY,
-    api_secret: process.env.EXTENSION_API_SECRET,
-    base_url: process.env.EXTENSION_BASE_URL,
-    cluster: process.env.FP_API_DOMAIN,
-    callbacks: {
-        auth: async (req) => {
-            // Write you code here to return initial launch url after auth process complete
-            if (req.query.application_id)
-                return `${req.extension.base_url}/company/${req.query['company_id']}/application/${req.query.application_id}`;
-            else
-                return `${req.extension.base_url}/company/${req.query['company_id']}`;
-        },
-        
-        uninstall: async (req) => {
-            // Write your code here to cleanup data related to extension
-            // If task is time taking then process it async on other process.
-        }
+  api_key: process.env.EXTENSION_API_KEY,
+  api_secret: process.env.EXTENSION_API_SECRET,
+  base_url: process.env.EXTENSION_BASE_URL,
+  cluster: process.env.FP_API_DOMAIN,
+  callbacks: {
+    auth: async (req) => {
+      // Write you code here to return initial launch url after auth process complete
+      if (req.query.application_id)
+        return `${req.extension.base_url}/company/${req.query["company_id"]}/application/${req.query.application_id}`;
+      else
+        return `${req.extension.base_url}/company/${req.query["company_id"]}`;
     },
-    storage: new SQLiteStorage(sqliteInstance,"exapmple-fynd-platform-extension"), // add your prefix
-    access_mode: "offline",
-    webhook_config: {
-        api_path: "/api/webhook-events",
-        notification_email: "parasjain@gofynd.com",
-        event_map: {
-            'application/courier-partner/assign': {
-                handler: webhookHandler.courierPartnerAsign,
-                version: '1',
-            },
-            'application/courier-partner/cancel': {
-                handler: webhookHandler.courierPartnerCancel,
-                version: '1',
-            }
-        }
+    install: async (req) => {
+      console.log("Extension install event received", req);
     },
+    uninstall: async (req) => {
+      // Write your code here to cleanup data related to extension
+      // If task is time taking then process it async on other process.
+    },
+  },
+  storage: (() => {
+    console.log(
+      "🗄️ Initializing SQLiteStorage with prefix: exapmple-fynd-platform-extension"
+    );
+    const storage = new SQLiteStorage(
+      sqliteInstance,
+      "exapmple-fynd-platform-extension"
+    );
+    console.log("✅ SQLiteStorage initialized successfully");
+    return storage;
+  })(), // add your prefix
+  access_mode: "offline",
+  webhook_config: {
+    api_path: "/api/webhook-events",
+    notification_email: "parasjain@gofynd.com",
+    event_map: {
+      "application/courier-partner/assign": {
+        handler: webhookHandler.courierPartnerAsign,
+        version: "1",
+      },
+      "application/courier-partner/cancel": {
+        handler: webhookHandler.courierPartnerCancel,
+        version: "1",
+      },
+      "application/shipment/create": {
+        handler: handleShipmentCreateEvent,
+        version: "1",
+      },
+      "application/shipment/update": {
+        handler: handleShipmentUpdateEvent,
+        version: "1",
+      },
+    },
+  },
 });
+
+console.log("🚀 FDK Extension initialized with configuration:");
+console.log(
+  "   - API Key:",
+  process.env.EXTENSION_API_KEY ? "✅ Set" : "❌ Not set"
+);
+console.log(
+  "   - API Secret:",
+  process.env.EXTENSION_API_SECRET ? "✅ Set" : "❌ Not set"
+);
+console.log("   - Base URL:", process.env.EXTENSION_BASE_URL || "❌ Not set");
+console.log("   - Cluster:", process.env.FP_API_DOMAIN || "❌ Not set");
+console.log("   - Access Mode: offline");
+console.log("   - Webhook Path: /api/webhook-events");
+
+// Import storage logger utility
+const { initLogger } = require("./storageLogger");
+
+// Initialize storage logger on startup (writes to storage.log file)
+setTimeout(() => {
+  initLogger({
+    clearOnStart: false, // Set to true to clear log file on each restart
+    watchChanges: true, // Continuously watch for database changes
+  });
+}, 2000);
 
 module.exports = fdkExtension;

@@ -6,7 +6,11 @@
     "start": "npm run start:dev",
     "start:dev": "nodemon index.js",
     "start:prod": "NODE_ENV=production node index.js",
-    "test": "jest --config jest.config.js --no-cache --detectOpenHandles --json --outputFile=./coverage/coverage.json"
+    "test": "jest --config jest.config.js --no-cache --detectOpenHandles --json --outputFile=./coverage/coverage.json",
+    "read-storage": "node backend/readStorage.js",
+    "log-storage": "node backend/storageLogger.js",
+    "log-storage:clear": "node backend/storageLogger.js --clear",
+    "log-storage:once": "node backend/storageLogger.js --no-watch"
   },
   "nodemonConfig": {
     "ignore": [

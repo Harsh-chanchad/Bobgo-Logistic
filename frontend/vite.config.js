@@ -1,4 +1,4 @@
- import { defineConfig } from "vite";
+import { defineConfig } from "vite";
 import { dirname } from "path";
 import { fileURLToPath } from "url";
 import react from "@vitejs/plugin-react";
@@ -13,8 +13,6 @@ const proxyOptions = {
 const host = process.env.HOST
   ? process.env.HOST.replace(/https?:\/\//, "")
   : "localhost";
-
-
 
 let hmrConfig;
 if (host === "localhost") {
@@ -40,7 +38,7 @@ export default defineConfig({
     preserveSymlinks: true,
   },
   build: {
-    outDir: 'public/dist'
+    outDir: "public/dist",
   },
   server: {
     host: "localhost",
@@ -50,6 +48,7 @@ export default defineConfig({
       "^/api(/|(\\?.*)?$)": proxyOptions,
       "^/apipartner(/|(\\?.*)?$)": proxyOptions,
       "^/apibasic(/|(\\?.*)?$)": proxyOptions,
+      "^/api/checkout(/|(\\?.*)?$)": proxyOptions,
       "^/fp(/|(\\?.*)?$)": proxyOptions,
       "^/adm(/|(\\?.*)?$)": proxyOptions,
     },
