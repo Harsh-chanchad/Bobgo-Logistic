@@ -8,7 +8,6 @@
 const express = require('express');
 const partnerRouter = express.Router();
 const fdkExtension = require("./fdk");
-const { organizationId } = require('./constant');
 
 /**
  * GET /test_partner_route
@@ -27,9 +26,8 @@ const { organizationId } = require('./constant');
  */
 partnerRouter.get('/test_partner_route', async function view(req, res, next) {
     try {
-        const partnerClient = await fdkExtension.getPartnerClient('6720b51d25f94c22e87376a5');
-        const response = await partnerClient.logistics.getCourierPartnerAccounts({
-            "organizationId": organizationId,
+        const platformClient = await fdkExtension.getPlatformClient(1);
+        const response = await platformClient.serviceability.getCourierPartnerAccounts({
             "companyId": 1,
             "pageNo": 1,
             "pageSize": 1,

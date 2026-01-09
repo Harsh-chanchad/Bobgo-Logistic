@@ -9,7 +9,7 @@ const basicRouter = express.Router();
 const fdkExtension = require("./fdk");
 const { uploadFileToStorage } = require("./utils");
 const path = require("path");
-const organizationId = require("./constant").organizationId;
+const { companyId } = require("./constant");
 
 /**
  * GET /test_basic_route
@@ -21,12 +21,10 @@ const organizationId = require("./constant").organizationId;
  * @returns {Object} JSON response with courier partner schemes.
  * @throws {Error} 404 error if fetching fails.
  */
-
-console.log("organizationId", organizationId);
 basicRouter.get("/test_basic_route", async function view(req, res, next) {
   try {
-    const platformClient = await fdkExtension.getPlatformClient();
-    const response = await platformClient.logistics.getCourierPartnerSchemes({
+    const partnerClient = await fdkExtension.getPartnerClient(organizationId);
+    const response = await partnerClient.logistics.getCourierPartnerSchemes({
       organizationId: organizationId,
     });
     console.log(JSON.stringify(response));
@@ -34,7 +32,7 @@ basicRouter.get("/test_basic_route", async function view(req, res, next) {
   } catch (err) {
     console.error(err);
     console.log(JSON.stringify(err));
-    res.status(404).json({ success: false, message: err.message });
+    res.status(404).json({ success: false });
   }
 });
 

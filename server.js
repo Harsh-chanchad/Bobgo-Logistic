@@ -66,7 +66,7 @@ app.use("/api/webhook-events", async function (req, res) {
 });
 
 const platformApiRoutes = fdkExtension.platformApiRoutes;
-const partnerApiRoutes = fdkExtension.partnerApiRoutes;
+const partnerApiRoutes = fdkExtension.partnerApiRoutes || express.Router();
 
 // If you are adding routes outside of the /api path,
 // remember to also add a proxy rule for them in /frontend/vite.config.js
