@@ -29,6 +29,8 @@ const serveStatic = require("serve-static");
 const { readFileSync } = require("fs");
 const checkoutRatesRouter = require("./backend/routers/checkoutratesrouter");
 const configurationRouter = require("./backend/routers/configurationRouter");
+const trackingUpdatedRouter = require("./backend/routers/trackingUpdatedRouter");
+const fulfillmentCreatedRouter = require("./backend/routers/fulfillmentCreatedRoute");
 
 require("dotenv").config();
 const fdkExtension = require("./backend/fdk");
@@ -49,6 +51,10 @@ app.use(cookieParser("ext.session"));
 app.use(bodyParser.json({ limit: "2mb" }));
 // Serve static files from the React dist directory
 app.use(serveStatic(STATIC_PATH, { index: false }));
+
+// Mount webhook routes BEFORE FDK handler to prevent route interception
+app.use("/tracking/updated", trackingUpdatedRouter);
+app.use("/fulfillment/created", fulfillmentCreatedRouter);
 
 // FDK extension handler and API routes (extension launch routes)
 app.use("/", fdkExtension.fdkHandler);

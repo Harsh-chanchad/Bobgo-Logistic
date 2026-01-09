@@ -3,23 +3,7 @@ const { setupFdk } = require("@gofynd/fdk-extension-javascript/express");
 const {
   SQLiteStorage,
 } = require("@gofynd/fdk-extension-javascript/express/storage");
-
-// Initialize SQLite database with logging
-const sqliteInstance = new sqlite3.Database("session_storage.db", (err) => {
-  if (err) {
-    console.error("SQLite Database Connection Error:", err);
-  } else {
-    console.log(
-      "✅ SQLite Database connected successfully: session_storage.db"
-    );
-  }
-});
-
-// Log all database operations
-sqliteInstance.on("trace", (sql) => {
-  console.log("📊 SQLite Query:", sql);
-});
-
+const sqliteInstance = new sqlite3.Database("session_storage.db");
 const webhookHandler = require("./webhook_routes");
 const handleShipmentCreateEvent = require("./controller/handleShipmentreateEvent");
 const handleShipmentUpdateEvent = require("./controller/handleShipmentUpdateEvent.js");
@@ -111,29 +95,29 @@ const fdkExtension = setupFdk({
   },
 });
 
-console.log("🚀 FDK Extension initialized with configuration:");
-console.log(
-  "   - API Key:",
-  process.env.EXTENSION_API_KEY ? "✅ Set" : "❌ Not set"
-);
-console.log(
-  "   - API Secret:",
-  process.env.EXTENSION_API_SECRET ? "✅ Set" : "❌ Not set"
-);
-console.log("   - Base URL:", process.env.EXTENSION_BASE_URL || "❌ Not set");
-console.log("   - Cluster:", process.env.FP_API_DOMAIN || "❌ Not set");
-console.log("   - Access Mode: offline");
-console.log("   - Webhook Path: /api/webhook-events");
+// console.log("🚀 FDK Extension initialized with configuration:");
+// console.log(
+//   "   - API Key:",
+//   process.env.EXTENSION_API_KEY ? "✅ Set" : "❌ Not set"
+// );
+// console.log(
+//   "   - API Secret:",
+//   process.env.EXTENSION_API_SECRET ? "✅ Set" : "❌ Not set"
+// );
+// console.log("   - Base URL:", process.env.EXTENSION_BASE_URL || "❌ Not set");
+// console.log("   - Cluster:", process.env.FP_API_DOMAIN || "❌ Not set");
+// console.log("   - Access Mode: offline");
+// console.log("   - Webhook Path: /api/webhook-events");
 
-// Import storage logger utility
-const { initLogger } = require("./storageLogger");
+// // Import storage logger utility
+// const { initLogger } = require("./storageLogger");
 
-// Initialize storage logger on startup (writes to storage.log file)
-setTimeout(() => {
-  initLogger({
-    clearOnStart: false, // Set to true to clear log file on each restart
-    watchChanges: true, // Continuously watch for database changes
-  });
-}, 2000);
+// // Initialize storage logger on startup (writes to storage.log file)
+// setTimeout(() => {
+//   initLogger({
+//     clearOnStart: false, // Set to true to clear log file on each restart
+//     watchChanges: true, // Continuously watch for database changes
+//   });
+// }, 2000);
 
 module.exports = fdkExtension;

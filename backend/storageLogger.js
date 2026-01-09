@@ -132,7 +132,7 @@ function logAllTables() {
 }
 
 /**
- * Watch for database changes and log them
+ * Watch for database changes and log them (silent mode)
  */
 function startWatching() {
   // Initial log
@@ -145,14 +145,14 @@ function startWatching() {
     const stats = fs.statSync(dbPath);
     if (stats.mtime > lastMtime) {
       lastMtime = stats.mtime;
-      console.log("📝 Database changed, logging to storage.log...");
+      // Silently log to file without console output
       logAllTables();
     }
   }, 2000); // Check every 2 seconds
 }
 
 /**
- * Clear log file
+ * Clear log file (silent mode)
  */
 function clearLogFile() {
   try {
@@ -161,21 +161,16 @@ function clearLogFile() {
     const title = "SQLite Storage Log File\n";
     const created = `Created: ${new Date().toISOString()}\n`;
     fs.writeFileSync(logFilePath, header + title + created + header, "utf8");
-    console.log("✅ Log file cleared: storage.log");
   } catch (err) {
-    console.error("Error clearing log file:", err);
+    // Silent error handling
   }
 }
 
 /**
- * Initialize logger
+ * Initialize logger (silent mode - only writes to file)
  */
 function initLogger(options = {}) {
   const { clearOnStart = false, watchChanges = true } = options;
-
-  console.log("🗄️  Initializing Storage Logger...");
-  console.log(`   Log file: ${logFilePath}`);
-  console.log(`   Database: ${dbPath}`);
 
   if (clearOnStart) {
     clearLogFile();
@@ -183,10 +178,8 @@ function initLogger(options = {}) {
 
   if (watchChanges) {
     startWatching();
-    console.log("✅ Storage Logger started (watching for changes)");
   } else {
     logAllTables();
-    console.log("✅ Storage logged once to file");
     db.close();
   }
 }
