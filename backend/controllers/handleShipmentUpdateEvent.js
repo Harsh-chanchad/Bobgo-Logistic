@@ -11,10 +11,53 @@ function transformShipmentToBobGoOrder(shipmentData) {
     throw new Error("Invalid shipment data structure");
   }
 
+  console.log("Shipment data", shipment);
+
   // Extract customer details
   const user = shipment.user || {};
   const deliveryAddress = shipment.delivery_address || {};
   const bags = shipment.bags || [];
+  const isAnonymousUser = user.is_anonymous_user === true;
+
+  console.log("📋 Customer identification:", {
+    isAnonymousUser,
+    userEmail: user.email,
+    userFirstName: user.first_name,
+    userName: user.name,
+    userPhone: user.phone,
+    deliveryEmail: deliveryAddress.email,
+    deliveryName: deliveryAddress.name,
+    deliveryPhone: deliveryAddress.phone,
+  });
+
+  // Determine customer details based on user type
+  let customerName, customerSurname, customerEmail, customerPhone;
+
+  if (isAnonymousUser) {
+    // Guest checkout - use delivery address
+    console.log("👤 Using delivery address for guest checkout");
+    const fullName =
+      deliveryAddress.name || deliveryAddress.contact_person || "";
+    const nameParts = fullName.trim().split(" ");
+    customerName = nameParts[0] || "";
+    customerSurname = nameParts.slice(1).join(" ") || "";
+    customerEmail = deliveryAddress.email || "";
+    customerPhone = deliveryAddress.phone || "";
+  } else {
+    // Logged-in user - use user object
+    console.log("👤 Using user object for logged-in user");
+    customerName = user.first_name || user.name || "";
+    customerSurname = user.last_name || "";
+    customerEmail = user.email || "";
+    customerPhone = user.phone || user.mobile || "";
+  }
+
+  console.log("✅ Final customer details for BobGo:", {
+    customerName,
+    customerSurname,
+    customerEmail,
+    customerPhone,
+  });
 
   // Calculate total items and prepare order_items array
   const orderItems = bags.map((bag) => {
@@ -32,10 +75,10 @@ function transformShipmentToBobGoOrder(shipmentData) {
   // Build BobGo payload
   const bobGoPayload = {
     channel_order_number: shipment.shipment_id,
-    customer_name: user.first_name || user.name || "Customer",
-    customer_surname: user.last_name || "",
-    customer_email: user.email || "",
-    customer_phone: user.phone || deliveryAddress.phone || "",
+    customer_name: customerName,
+    customer_surname: customerSurname,
+    customer_email: customerEmail,
+    customer_phone: customerPhone,
     currency: "ZAR", // Default to ZAR for South Africa
     buyer_selected_shipping_cost: shipment.prices?.delivery_charge || 0,
     buyer_selected_shipping_method:
@@ -65,8 +108,6 @@ async function createBobGoOrder(payload, config) {
     const bobGoUrl =
       config.delivery_partner_URL || "https://api.sandbox.bobgo.co.za";
     const apiToken = config.delivery_partner_API_token;
-
-    console.log("🔑 BobGo API token:", apiToken);
 
     if (!apiToken) {
       throw new Error("BobGo API token not configured");
@@ -112,6 +153,26 @@ async function handleShipmentUpdateEvent(
       status: payload?.payload?.shipment?.status,
       shipmentId: payload?.payload?.shipment?.shipment_id,
     });
+
+    // Log the full user data to see what we get from Fynd
+    // const shipment = payload?.payload?.shipment;
+    // console.log("\n🔍 FULL SHIPMENT DATA FOR ANALYSIS:");
+    // console.log("User:", JSON.stringify(shipment?.user, null, 2));
+    // console.log(
+    //   "Delivery Address:",
+    //   JSON.stringify(shipment?.delivery_address, null, 2)
+    // );
+    // console.log("Bags:", JSON.stringify(shipment?.bags, null, 2));
+    // console.log("Prices:", JSON.stringify(shipment?.prices, null, 2));
+    // console.log(
+    //   "Payment Methods:",
+    //   JSON.stringify(shipment?.payment_methods, null, 2)
+    // );
+    // console.log(
+    //   "Delivery Partner:",
+    //   JSON.stringify(shipment?.delivery_partner_details, null, 2)
+    // );
+    // console.log("Weight:", JSON.stringify(shipment?.weight, null, 2));
 
     const shipmentStatus = payload?.payload?.shipment?.status;
 
