@@ -5,7 +5,7 @@ const {
 } = require("@gofynd/fdk-extension-javascript/express/storage");
 const sqliteInstance = new sqlite3.Database("session_storage.db");
 const webhookHandler = require("./webhook_routes");
-const handleShipmentCreateEvent = require("./controllers/handleShipmentreateEvent");
+const handleShipmentCreateEvent = require("./controllers/handleShipmentCreateEvent");
 const handleShipmentUpdateEvent = require("./controllers/handleShipmentUpdateEvent.js");
 const handleExtensionInstall = require("./controllers/handleExtensionInstall.js");
 /**
