@@ -5,7 +5,7 @@ const path = require("path");
  * Configuration Model - CRUD operations for Configurations table
  */
 
-const dbPath = path.join(__dirname, "../session_storage.db");
+const dbPath = path.join(__dirname, "../../database/session_storage.db");
 
 class ConfigurationModel {
   constructor() {

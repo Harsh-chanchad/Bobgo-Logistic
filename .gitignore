@@ -43,3 +43,6 @@ coverage_output.json
 session_storage.db
 # Storage logs
 storage.log
+
+FOLDER_STRUCTURE.md
+REFACTORING_SUMMARY.md

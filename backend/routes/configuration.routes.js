@@ -1,6 +1,6 @@
 const express = require("express");
 const configurationRouter = express.Router();
-const ConfigurationModel = require("../configurationModel");
+const ConfigurationModel = require("../models/Configuration.model");
 
 /**
  * Configuration API Routes

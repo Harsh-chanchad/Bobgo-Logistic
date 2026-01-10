@@ -1,5 +1,5 @@
 const axios = require("axios");
-const ConfigurationModel = require("../configurationModel");
+const ConfigurationModel = require("../../models/Configuration.model");
 
 /**
  * Transform Fynd shipment payload to BobGo Create Order format

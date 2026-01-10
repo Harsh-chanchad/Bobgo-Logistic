@@ -2,22 +2,21 @@ const {
   processBobGoWebhookAndUpdateFynd,
   extractShipmentIdFromBobGo,
   extractCompanyIdFromBobGo,
-} = require("../utils/bobgoToFyndStatusMapper");
-const fdkExtension = require("../fdk");
+} = require("../../utils/statusMapper");
+const fdkExtension = require("../../fdk");
 
 /**
- * Handle BobGo Tracking Updated Webhook
+ * Handle BobGo Fulfillment Created Webhook
  *
- * Triggered when courier updates the tracking status:
- * - status: "collected" → Update Fynd to "bag_picked"
- * - status: "out_for_delivery" → Update Fynd to "out_for_delivery"
- * - status: "delivered" → Update Fynd to "delivery_done"
+ * Triggered when warehouse staff selects a courier from BobGo portal
+ * Webhook payload contains: method_status: "pending-collection", status: "success"
+ * Action: Update Fynd shipment status to "dp_assigned"
  */
-const handleTrackingUpdatedEvent = async (req, res) => {
+const handleFulfillmentCreateEvent = async (req, res) => {
   try {
     const bobGoWebhook = req.body;
 
-    console.log("📍 Tracking updated event received from BobGo");
+    console.log("📦 Fulfillment create event received from BobGo");
     console.log("📋 Webhook payload:", JSON.stringify(bobGoWebhook, null, 2));
 
     // Extract shipment ID and company ID
@@ -25,7 +24,7 @@ const handleTrackingUpdatedEvent = async (req, res) => {
     const companyId = extractCompanyIdFromBobGo(bobGoWebhook);
 
     if (!shipmentId) {
-      console.warn("⚠️ No shipment ID found in BobGo tracking webhook");
+      console.warn("⚠️ No shipment ID found in BobGo webhook");
       return res.status(400).json({
         success: false,
         message:
@@ -34,10 +33,7 @@ const handleTrackingUpdatedEvent = async (req, res) => {
     }
 
     console.log(
-      `🔍 Processing tracking update for shipment: ${shipmentId}, company: ${companyId}`
-    );
-    console.log(
-      `📊 BobGo tracking status: ${bobGoWebhook.status || "unknown"}`
+      `🔍 Processing fulfillment for shipment: ${shipmentId}, company: ${companyId}`
     );
 
     // Get platform client for the company
@@ -62,30 +58,30 @@ const handleTrackingUpdatedEvent = async (req, res) => {
 
     if (result.success) {
       console.log(
-        `✅ Successfully processed tracking webhook and updated Fynd`
+        `✅ Successfully processed fulfillment webhook and updated Fynd`
       );
       return res.status(200).json({
         success: true,
-        message: "Tracking event processed successfully",
+        message: "Fulfillment event processed successfully",
         shipmentId,
         fyndStatus: result.fyndStatus,
         bobGoStatus: result.bobGoStatus,
       });
     } else {
       console.warn(
-        `⚠️ Failed to process tracking webhook: ${
+        `⚠️ Failed to process fulfillment webhook: ${
           result.message || result.error
         }`
       );
       return res.status(200).json({
         success: false,
         message:
-          result.message || result.error || "Failed to process tracking update",
+          result.message || result.error || "Failed to process fulfillment",
         shipmentId,
       });
     }
   } catch (error) {
-    console.error("❌ Error handling tracking updated event:", error);
+    console.error("❌ Error handling fulfillment create event:", error);
     return res.status(500).json({
       success: false,
       error: error.message,
@@ -93,4 +89,4 @@ const handleTrackingUpdatedEvent = async (req, res) => {
   }
 };
 
-module.exports = handleTrackingUpdatedEvent;
+module.exports = handleFulfillmentCreateEvent;

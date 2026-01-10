@@ -75,29 +75,25 @@ function mapBobGoStatusToFynd(bobGoWebhook) {
 
 /**
  * Updates Fynd shipment status
- * @param {string} companyId - Company ID
+ * @param {Object} platformClient - Platform client instance
  * @param {string} shipmentId - Shipment ID
  * @param {string} fyndStatus - Fynd status to update to
  * @param {Object} metadata - Additional metadata (optional)
  * @returns {Promise<Object>} - API response
  */
 async function updateFyndShipmentStatus(
-  companyId,
+  platformClient,
   shipmentId,
   fyndStatus,
   metadata = {}
 ) {
   try {
     console.log(`🔄 Updating Fynd shipment status:`, {
-      companyId,
       shipmentId,
       status: fyndStatus,
       metadata,
     });
 
-    const platformClient = await fdkExtension.getPlatformClient(11874);
-
-    console.log("platformClient", platformClient);
     // Prepare reason text based on status
     const reasonText = metadata.bobGoMethodStatus
       ? `BobGo: ${metadata.bobGoMethodStatus}`
@@ -110,7 +106,7 @@ async function updateFyndShipmentStatus(
           {
             shipments: [
               {
-                identifier: shipmentId, // Use 'identifier' not 'shipment_id'
+                identifier: shipmentId,
                 reasons: {
                   entities: [
                     {
@@ -136,19 +132,18 @@ async function updateFyndShipmentStatus(
             split_shipment: false,
           },
         ],
-        task: true,
-        force_transition: false,
+        task: false,
+        force_transition: true, // ✅ FIXED: Allow status transition even if not in normal flow
         lock_after_transition: false,
         unlock_before_transition: true,
         resume_tasks_after_unlock: false,
       },
     });
 
-    console.log(`✅ Fynd shipment status updated successfully:`, response);
+    console.log(`✅ Fynd shipment status updated to ${fyndStatus}:`, response);
     return response;
   } catch (error) {
     console.error(`❌ Failed to update Fynd shipment status:`, {
-      companyId,
       shipmentId,
       status: fyndStatus,
       error: error.message,
@@ -161,13 +156,13 @@ async function updateFyndShipmentStatus(
 /**
  * Process BobGo webhook and update Fynd shipment
  * @param {Object} bobGoWebhook - BobGo webhook payload
- * @param {string} companyId - Company ID
+ * @param {Object} platformClient - Platform client instance
  * @param {string} shipmentId - Shipment ID (from channel_order_number or external mapping)
  * @returns {Promise<Object>} - Result of the update
  */
 async function processBobGoWebhookAndUpdateFynd(
   bobGoWebhook,
-  companyId,
+  platformClient,
   shipmentId
 ) {
   try {
@@ -185,9 +180,8 @@ async function processBobGoWebhookAndUpdateFynd(
     }
 
     // Update Fynd shipment status
-
     const response = await updateFyndShipmentStatus(
-      companyId,
+      platformClient,
       shipmentId,
       fyndStatus,
       {
@@ -233,7 +227,7 @@ function extractShipmentIdFromBobGo(bobGoWebhook) {
  * @returns {string} - Company ID
  */
 function extractCompanyIdFromBobGo(bobGoWebhook) {
-  const { companyId } = require("../constant");
+  const { companyId } = require("../config/constants");
   // For now, use the constant company ID
   // In the future, you might store BobGo order → Fynd company mapping in DB
   return companyId.toString();

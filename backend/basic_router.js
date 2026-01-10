@@ -7,9 +7,9 @@
 const express = require("express");
 const basicRouter = express.Router();
 const fdkExtension = require("./fdk");
-const { uploadFileToStorage } = require("./utils");
+const { uploadFileToStorage } = require("./utils/fileUpload");
 const path = require("path");
-const { companyId } = require("./constant");
+const { companyId } = require("./config/constants");
 
 /**
  * GET /test_basic_route

@@ -7,7 +7,7 @@ const sqlite3 = require("sqlite3").verbose();
 const path = require("path");
 
 // Auto-create Configurations table on startup
-const dbPath = path.join(__dirname, "session_storage.db");
+const dbPath = path.join(__dirname, "database/session_storage.db");
 const db = new sqlite3.Database(dbPath);
 
 const createTableSQL = `
