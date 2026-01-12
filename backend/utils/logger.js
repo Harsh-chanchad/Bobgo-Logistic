@@ -7,8 +7,9 @@ const path = require("path");
  * Monitors database changes and appends to storage.log
  */
 
-const dbPath = path.join(__dirname, "../session_storage.db");
-const logFilePath = path.join(__dirname, "../storage.log");
+const dbPath = path.join(__dirname, "../../session_storage.db");
+const logFilePath = path.join(__dirname, "../../logs/storage.log");
+console.log("📂 Logger - Database path:", dbPath);
 
 // Open database connection
 const db = new sqlite3.Database(dbPath);

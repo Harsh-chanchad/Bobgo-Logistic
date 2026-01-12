@@ -24,12 +24,40 @@ const { companyId } = require("./config/constants");
 basicRouter.get("/test_basic_route", async function view(req, res, next) {
   try {
     const platformClient = await fdkExtension.getPlatformClient(companyId);
+
     const response =
       await platformClient.serviceability.getCourierPartnerSchemes({
         company_id: companyId,
+        schemeType: "global",
       });
-    console.log(JSON.stringify(response));
-    res.json(response);
+
+    // Filter to show only service plans belonging to this extension
+    const myExtensionId = process.env.EXTENSION_API_KEY;
+
+    const filteredItems =
+      response.items?.filter((plan) => plan.extension_id === myExtensionId) ||
+      [];
+
+    const filteredResponse = {
+      ...response,
+      items: filteredItems,
+      page: {
+        ...response.page,
+        size: filteredItems.length,
+        item_total: filteredItems.length,
+      },
+    };
+
+    console.log(`📊 Total plans in system: ${response.items?.length || 0}`);
+    console.log(`🔑 Your extension ID: ${myExtensionId}`);
+    console.log(`✅ Your plans: ${filteredItems.length}`);
+    console.log(
+      `📋 Your plan names: ${
+        filteredItems.map((p) => p.name).join(", ") || "None"
+      }`
+    );
+
+    res.json(filteredResponse);
   } catch (err) {
     console.error(err);
     console.log(JSON.stringify(err));
@@ -49,7 +77,7 @@ basicRouter.get("/test_basic_route", async function view(req, res, next) {
  */
 basicRouter.post("/scheme", async function view(req, res, next) {
   try {
-    const platformClient = await fdkExtension.getPlatformClient(1);
+    const platformClient = await fdkExtension.getPlatformClient(companyId);
     const response =
       await platformClient.serviceability.createCourierPartnerScheme({
         company_id: companyId,
@@ -505,7 +533,7 @@ basicRouter.get("/scheme_tat_history", async function view(req, res, next) {
  */
 basicRouter.post("/create_seller_account", async function view(req, res, next) {
   try {
-    const platformClient = await fdkExtension.getPlatformClient(1);
+    const platformClient = await fdkExtension.getPlatformClient(companyId);
     const response =
       await platformClient.serviceability.createCourierPartnerAccount({
         company_id: companyId,

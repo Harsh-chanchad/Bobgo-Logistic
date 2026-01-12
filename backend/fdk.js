@@ -1,9 +1,14 @@
+const path = require("path");
 const sqlite3 = require("sqlite3").verbose();
 const { setupFdk } = require("@gofynd/fdk-extension-javascript/express");
 const {
   SQLiteStorage,
 } = require("@gofynd/fdk-extension-javascript/express/storage");
-const sqliteInstance = new sqlite3.Database("session_storage.db");
+
+// Use absolute path to ensure database is found regardless of working directory
+const dbPath = path.join(__dirname, "..", "session_storage.db");
+console.log("📂 Database path:", dbPath);
+const sqliteInstance = new sqlite3.Database(dbPath);
 const webhookHandler = require("./controllers/webhook/courierPartnerWebhooks");
 const handleShipmentCreateEvent = require("./controllers/webhook/handleShipmentCreateEvent");
 const handleShipmentUpdateEvent = require("./controllers/webhook/handleShipmentUpdateEvent");
@@ -46,17 +51,19 @@ const fdkExtension = setupFdk({
   callbacks: {
     auth: async (req) => {
       // Write you code here to return initial launch url after auth process complete
+      // console.log("request query", JSON.stringify(req.query));
       if (req.query.application_id)
         return `${req.extension.base_url}/company/${req.query["company_id"]}/application/${req.query.application_id}`;
       else
         return `${req.extension.base_url}/company/${req.query["company_id"]}`;
     },
-    install: async (req) => {
-      console.log("Extension install event received", req);
-    },
+    // install: async (req) => {
+    //   console.log("Extension install event received", req);
+    // },
     uninstall: async (req) => {
       // Write your code here to cleanup data related to extension
       // If task is time taking then process it async on other process.
+      console.log("Extension uninstall event received", req);
     },
   },
   storage: (() => {
