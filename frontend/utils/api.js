@@ -9,12 +9,21 @@ const MAIN_URL = window.location.origin;
 export const api = {
   /**
    * Fetches all courier partner schemes for the organization
+   * @param {string|number} companyId - Company ID (optional, can be in header, query, or route param)
    * @returns {Promise<Object>} Response containing all schemes
    */
-  getAllSchemes: async () => {
+  getAllSchemes: async (companyId) => {
     try {
+      const config = companyId
+        ? {
+            headers: {
+              "x-company-id": companyId,
+            },
+          }
+        : {};
       const { data } = await axios.get(
-        urlJoin(MAIN_URL, "/apibasic/test_basic_route")
+        urlJoin(MAIN_URL, "/apibasic/test_basic_route"),
+        config
       );
       return { success: true, data };
     } catch (error) {
@@ -29,9 +38,10 @@ export const api = {
   /**
    * Fetches a specific scheme by ID
    * @param {string} schemeId - The scheme ID to fetch
+   * @param {string|number} companyId - Company ID (optional, can be in header, query, or route param)
    * @returns {Promise<Object>} Response containing the scheme details
    */
-  getSchemeById: async (schemeId) => {
+  getSchemeById: async (schemeId, companyId) => {
     if (!schemeId) {
       return {
         success: false,
@@ -40,8 +50,16 @@ export const api = {
     }
 
     try {
+      const config = companyId
+        ? {
+            headers: {
+              "x-company-id": companyId,
+            },
+          }
+        : {};
       const { data } = await axios.get(
-        urlJoin(MAIN_URL, `/apibasic/scheme/${schemeId}`)
+        urlJoin(MAIN_URL, `/apibasic/scheme/${schemeId}`),
+        config
       );
       return data;
     } catch (error) {
@@ -131,13 +149,22 @@ export const api = {
   /**
    * Creates a new courier partner scheme
    * @param {Object} schemeData - The scheme data to create
+   * @param {string|number} companyId - Company ID (optional, can be in header, query, or route param)
    * @returns {Promise<Object>} Response containing the created scheme
    */
-  createScheme: async (schemeData) => {
+  createScheme: async (schemeData, companyId) => {
     try {
+      const config = companyId
+        ? {
+            headers: {
+              "x-company-id": companyId,
+            },
+          }
+        : {};
       const { data } = await axios.post(
         urlJoin(MAIN_URL, "/apibasic/scheme"),
-        schemeData
+        schemeData,
+        config
       );
       return { success: true, data };
     } catch (error) {
@@ -152,13 +179,22 @@ export const api = {
   /**
    * Creates a seller account for a courier partner
    * @param {Object} accountData - The account data to create
+   * @param {string|number} companyId - Company ID (optional, can be in header, query, or route param)
    * @returns {Promise<Object>} Response containing the created account
    */
-  createSellerAccount: async (accountData) => {
+  createSellerAccount: async (accountData, companyId) => {
     try {
+      const config = companyId
+        ? {
+            headers: {
+              "x-company-id": companyId,
+            },
+          }
+        : {};
       const { data } = await axios.post(
         urlJoin(MAIN_URL, "/apibasic/create_seller_account"),
-        accountData
+        accountData,
+        config
       );
       return { success: true, data };
     } catch (error) {
@@ -173,13 +209,22 @@ export const api = {
   /**
    * Updates shipment status
    * @param {Object} statusData - The status update data
+   * @param {string|number} companyId - Company ID (optional, can be in header, query, or route param)
    * @returns {Promise<Object>} Response containing the update result
    */
-  updateShipmentStatus: async (statusData) => {
+  updateShipmentStatus: async (statusData, companyId) => {
     try {
+      const config = companyId
+        ? {
+            headers: {
+              "x-company-id": companyId,
+            },
+          }
+        : {};
       const { data } = await axios.post(
         urlJoin(MAIN_URL, "/apibasic/update_shipment_status"),
-        statusData
+        statusData,
+        config
       );
       return { success: true, data };
     } catch (error) {
@@ -194,13 +239,22 @@ export const api = {
   /**
    * Updates shipment tracking information
    * @param {Object} trackingData - The tracking update data
+   * @param {string|number} companyId - Company ID (optional, can be in header, query, or route param)
    * @returns {Promise<Object>} Response containing the update result
    */
-  updateShipmentTracking: async (trackingData) => {
+  updateShipmentTracking: async (trackingData, companyId) => {
     try {
+      const config = companyId
+        ? {
+            headers: {
+              "x-company-id": companyId,
+            },
+          }
+        : {};
       const { data } = await axios.post(
         urlJoin(MAIN_URL, "/apibasic/update_shipment_tracking"),
-        trackingData
+        trackingData,
+        config
       );
       return { success: true, data };
     } catch (error) {
@@ -217,10 +271,18 @@ export const api = {
    * @param {string} filePath - The CDN path of the uploaded file
    * @param {string} schemeId - The scheme ID to upload for
    * @param {Object} options - Additional options (country, region, action)
+   * @param {string|number} companyId - Company ID (optional, can be in header, query, or route param)
    * @returns {Promise<Object>} Response containing the upload result
    */
-  uploadServiceability: async (filePath, schemeId, options = {}) => {
+  uploadServiceability: async (filePath, schemeId, options = {}, companyId) => {
     try {
+      const config = companyId
+        ? {
+            headers: {
+              "x-company-id": companyId,
+            },
+          }
+        : {};
       const { data } = await axios.post(
         urlJoin(MAIN_URL, "/apibasic/upload_scheme_servicability"),
         {
@@ -229,7 +291,8 @@ export const api = {
           country: options.country || "India",
           region: options.region || "Pincode",
           action: options.action || "import",
-        }
+        },
+        config
       );
       return { success: true, data };
     } catch (error) {
@@ -246,10 +309,18 @@ export const api = {
    * @param {string} filePath - The CDN path of the uploaded file
    * @param {string} schemeId - The scheme ID to upload for
    * @param {Object} options - Additional options (country, region, action)
+   * @param {string|number} companyId - Company ID (optional, can be in header, query, or route param)
    * @returns {Promise<Object>} Response containing the upload result
    */
-  uploadTAT: async (filePath, schemeId, options = {}) => {
+  uploadTAT: async (filePath, schemeId, options = {}, companyId) => {
     try {
+      const config = companyId
+        ? {
+            headers: {
+              "x-company-id": companyId,
+            },
+          }
+        : {};
       const { data } = await axios.post(
         urlJoin(MAIN_URL, "/apibasic/upload_scheme_tat"),
         {
@@ -258,7 +329,8 @@ export const api = {
           country: options.country || "India",
           region: options.region || "City",
           action: options.action || "import",
-        }
+        },
+        config
       );
       return { success: true, data };
     } catch (error) {
@@ -273,13 +345,22 @@ export const api = {
   /**
    * Gets serviceability history for a scheme
    * @param {string} schemeId - The scheme ID
+   * @param {string|number} companyId - Company ID (optional, can be in header, query, or route param)
    * @returns {Promise<Object>} Response containing the history
    */
-  getServiceabilityHistory: async (schemeId) => {
+  getServiceabilityHistory: async (schemeId, companyId) => {
     try {
+      const config = {
+        params: { schemeId },
+      };
+      if (companyId) {
+        config.headers = {
+          "x-company-id": companyId,
+        };
+      }
       const { data } = await axios.get(
         urlJoin(MAIN_URL, "/apibasic/scheme_serviceability_history"),
-        { params: { schemeId } }
+        config
       );
       return { success: true, data };
     } catch (error) {
@@ -294,13 +375,22 @@ export const api = {
   /**
    * Gets TAT history for a scheme
    * @param {string} schemeId - The scheme ID
+   * @param {string|number} companyId - Company ID (optional, can be in header, query, or route param)
    * @returns {Promise<Object>} Response containing the history
    */
-  getTATHistory: async (schemeId) => {
+  getTATHistory: async (schemeId, companyId) => {
     try {
+      const config = {
+        params: { schemeId },
+      };
+      if (companyId) {
+        config.headers = {
+          "x-company-id": companyId,
+        };
+      }
       const { data } = await axios.get(
         urlJoin(MAIN_URL, "/apibasic/scheme_tat_history"),
-        { params: { schemeId } }
+        config
       );
       return { success: true, data };
     } catch (error) {

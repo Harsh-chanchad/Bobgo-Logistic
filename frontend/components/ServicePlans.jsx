@@ -49,7 +49,7 @@ export const ServicePlans = ({ companyId }) => {
         const loadServicePlans = async () => {
             setPlansLoading(true);
             try {
-                const result = await api.getAllSchemes();
+                const result = await api.getAllSchemes(companyId);
                 if (result.success) {
                     setServicePlans(result.data);
                     console.log("Service Plans loaded:", result.data);
@@ -64,8 +64,10 @@ export const ServicePlans = ({ companyId }) => {
             }
         };
 
-        loadServicePlans();
-    }, []);
+        if (companyId) {
+            loadServicePlans();
+        }
+    }, [companyId]);
 
     // If a scheme is selected, show the edit form
     if (selectedSchemeId) {

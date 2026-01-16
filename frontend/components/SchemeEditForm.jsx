@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Button } from "@gofynd/nitrozen-react";
 import loaderGif from "../public/assets/loader.gif";
 import { api } from "../utils/api";
+import { DeliveryCapabilityModal } from "./DeliveryCapabilityModal";
 import "./SchemeEditForm.less";
 
 /**
@@ -93,12 +94,14 @@ export const SchemeEditForm = ({ schemeId, companyId, onBack }) => {
                         },
                         serviceableWeight: {
                             deadWeight: {
-                                min: schemeData.weight?.gte || "",
-                                max: schemeData.weight?.lte || ""
+                                // API returns gt/lt, but we also check for gte/lte as fallback
+                                min: schemeData.weight?.gt,
+                                max: schemeData.weight?.lt
                             },
                             volumetricWeight: {
-                                min: schemeData.volumetric_weight?.gte || "",
-                                max: schemeData.volumetric_weight?.lte || ""
+                                // API returns gt/lt, but we also check for gte/lte as fallback
+                                min: schemeData.volumetric_weight?.gt,
+                                max: schemeData.volumetric_weight?.lt
                             }
                         },
                         credentials: {
@@ -108,7 +111,11 @@ export const SchemeEditForm = ({ schemeId, companyId, onBack }) => {
                                 `curl -X POST 'https://bobgo-extension.fynd.com/v1.0/webhook/${companyId}'`
                         },
                         deliveryCapabilities: {
-                            features: schemeData.feature || {}
+                            features: {
+                                ...(schemeData.feature || {}),
+                                // Set cash_on_delivery based on payment_mode array
+                                cash_on_delivery: schemeData.payment_mode?.includes("COD") || false
+                            }
                         },
                         serviceableAreas: {
                             autoUpdate: false
@@ -254,28 +261,61 @@ export const SchemeEditForm = ({ schemeId, companyId, onBack }) => {
 
             // Build scheme updates - include all fields that might have changed
             // Backend will merge with existing scheme data to ensure all required fields are present
+            const features = formData.deliveryCapabilities.features || {};
+
+            // Extract scheme-level fields from features (if they exist)
+            const operationScheme = features.operation_scheme || scheme.region;
+            const shippingSpeeds = features.shipping_speeds || [];
+            const deliveryType = shippingSpeeds.length > 0 ? shippingSpeeds[0] : scheme.delivery_type;
+
+            // Remove scheme-level fields from features object before sending to backend
+            const { transport_type, shipping_speeds, operation_scheme, cash_on_delivery, ...cleanFeatures } = features;
+
+            // Build payment_mode array based on cash_on_delivery feature
+            // PREPAID is always included, COD is only included if cash_on_delivery is true
+            const cashOnDeliveryEnabled = cash_on_delivery !== undefined
+                ? cash_on_delivery
+                : (scheme.payment_mode?.includes("COD") || false);
+
+            const paymentMode = ["PREPAID"];
+            if (cashOnDeliveryEnabled) {
+                paymentMode.push("COD");
+            }
+
+            // Parse weight values - only include if they are valid numbers > 0
+            const deadWeightMin = parseFloat(formData.serviceableWeight.deadWeight.min);
+            const deadWeightMax = parseFloat(formData.serviceableWeight.deadWeight.max);
+            const volumetricWeightMin = parseFloat(formData.serviceableWeight.volumetricWeight.min);
+            const volumetricWeightMax = parseFloat(formData.serviceableWeight.volumetricWeight.max);
+
             const updates = {
                 scheme_updates: {
                     // Fields that can be edited
                     name: formData.planDetails.customPlanName,
                     transport_type: formData.planDetails.planType,
-                    weight: {
-                        gte: parseFloat(formData.serviceableWeight.deadWeight.min) || 0,
-                        lte: parseFloat(formData.serviceableWeight.deadWeight.max) || 0
-                    },
-                    volumetric_weight: {
-                        gte: parseFloat(formData.serviceableWeight.volumetricWeight.min) || 0,
-                        lte: parseFloat(formData.serviceableWeight.volumetricWeight.max) || 0
-                    },
-                    feature: formData.deliveryCapabilities.features,
+                    // Only include weight if valid values are provided
+                    ...(deadWeightMin > 0 || deadWeightMax > 0 ? {
+                        weight: {
+                            gte: deadWeightMin || 0,
+                            lte: deadWeightMax || 0,
+                        }
+                    } : {}),
+                    // Only include volumetric_weight if valid values are provided
+                    ...(volumetricWeightMin > 0 || volumetricWeightMax > 0 ? {
+                        volumetric_weight: {
+                            gte: volumetricWeightMin || 0,
+                            lte: volumetricWeightMax || 0
+                        }
+                    } : {}),
+                    feature: cleanFeatures, // Only send clean features without scheme-level fields
                     // Include existing scheme fields (not editable but required by API)
-                    region: scheme.region,
-                    delivery_type: scheme.delivery_type,
-                    payment_mode: scheme.payment_mode,
-                    // Optional fields from current scheme
-                    ndr_attempts: scheme.ndr_attempts,
-                    qc_shipment_item_quantity: scheme.qc_shipment_item_quantity,
-                    non_qc_shipment_item_quantity: scheme.non_qc_shipment_item_quantity,
+                    region: operationScheme || scheme.region,
+                    delivery_type: deliveryType || scheme.delivery_type,
+                    payment_mode: paymentMode,
+                    // Optional fields from current scheme (can be overridden by feature object)
+                    ndr_attempts: cleanFeatures.ndr_attempts !== undefined ? cleanFeatures.ndr_attempts : scheme.ndr_attempts,
+                    qc_shipment_item_quantity: cleanFeatures.qc_shipment_item_quantity !== undefined ? cleanFeatures.qc_shipment_item_quantity : scheme.qc_shipment_item_quantity,
+                    non_qc_shipment_item_quantity: cleanFeatures.non_qc_shipment_item_quantity !== undefined ? cleanFeatures.non_qc_shipment_item_quantity : scheme.non_qc_shipment_item_quantity,
                     // New Phase 3 fields
                     pickup_cutoff: {
                         forward: formData.pickupCutoff.forward,
@@ -297,17 +337,22 @@ export const SchemeEditForm = ({ schemeId, companyId, onBack }) => {
                 }
             };
 
+            console.log("Sending updates to backend:", JSON.stringify(updates, null, 2));
+
             const result = await api.saveSchemeData(schemeId, companyId, updates);
 
             if (result.success) {
                 alert("✅ Data saved successfully!");
                 // Optionally reload data
             } else {
-                alert("❌ Failed to save: " + result.error);
+                const errorMsg = result.error || "Unknown error";
+                console.error("Save failed:", errorMsg);
+                alert("❌ Failed to save: " + errorMsg);
             }
         } catch (error) {
             console.error("Save error:", error);
-            alert("❌ Failed to save data");
+            const errorMsg = error.response?.data?.message || error.message || "Unknown error occurred";
+            alert("❌ Failed to save data: " + errorMsg);
         } finally {
             setLoading(false);
         }
@@ -752,15 +797,51 @@ export const SchemeEditForm = ({ schemeId, companyId, onBack }) => {
                 </div>
             </div>
 
-            {/* Capabilities Modal - Placeholder for now */}
+            {/* Capabilities Modal */}
             {showCapabilitiesModal && (
-                <div className="modal-overlay" onClick={() => setShowCapabilitiesModal(false)}>
-                    <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-                        <h3>Delivery Service Capabilities</h3>
-                        <p>Modal functionality coming in Phase 2.1</p>
-                        <Button onClick={() => setShowCapabilitiesModal(false)}>Close</Button>
-                    </div>
-                </div>
+                <DeliveryCapabilityModal
+                    scheme={scheme}
+                    formData={formData}
+                    onClose={() => setShowCapabilitiesModal(false)}
+                    onSave={(updatedFeatures) => {
+                        // Extract scheme-level fields from features
+                        const transportType = updatedFeatures.transport_type;
+                        const deliveryType = updatedFeatures.shipping_speeds && updatedFeatures.shipping_speeds.length > 0
+                            ? updatedFeatures.shipping_speeds[0] // Use first shipping speed as delivery_type
+                            : formData.planDetails.planType;
+                        const operationScheme = updatedFeatures.operation_scheme;
+
+                        // Remove scheme-level fields from features object
+                        const { transport_type, shipping_speeds, operation_scheme, ...featureFields } = updatedFeatures;
+
+                        setFormData(prev => ({
+                            ...prev,
+                            deliveryCapabilities: {
+                                features: featureFields
+                            },
+                            planDetails: {
+                                ...prev.planDetails,
+                                planType: transportType || prev.planDetails.planType
+                            }
+                        }));
+
+                        // Also update scheme object for immediate display
+                        if (scheme) {
+                            setScheme(prev => ({
+                                ...prev,
+                                transport_type: transportType || prev.transport_type,
+                                delivery_type: deliveryType || prev.delivery_type,
+                                region: operationScheme || prev.region,
+                                feature: {
+                                    ...prev.feature,
+                                    ...featureFields
+                                }
+                            }));
+                        }
+
+                        setShowCapabilitiesModal(false);
+                    }}
+                />
             )}
 
             {/* Serviceability Bulk Action Modal */}
