@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from "react";
-import axios from "axios";
-import urlJoin from "url-join";
 import { Button } from "@gofynd/nitrozen-react";
 import loaderGif from "../public/assets/loader.gif";
 import localShippingIcon from "../public/assets/local_shipping.svg";
 import airplaneIcon from "../public/assets/plane.svg";
+import { api } from "../utils/api";
+import { SchemeEditForm } from "./SchemeEditForm";
 import "./ServicePlans.less";
 
 const EXAMPLE_MAIN_URL = window.location.origin;
@@ -40,19 +40,22 @@ const PlusIcon = () => (
     </svg>
 );
 
-export const ServicePlans = () => {
+export const ServicePlans = ({ companyId }) => {
     const [servicePlans, setServicePlans] = useState(null);
     const [plansLoading, setPlansLoading] = useState(true);
+    const [selectedSchemeId, setSelectedSchemeId] = useState(null);
 
     useEffect(() => {
         const loadServicePlans = async () => {
             setPlansLoading(true);
             try {
-                const { data } = await axios.get(
-                    urlJoin(EXAMPLE_MAIN_URL, "/apibasic/test_basic_route")
-                );
-                setServicePlans(data);
-                console.log("Service Plans loaded:", data);
+                const result = await api.getAllSchemes();
+                if (result.success) {
+                    setServicePlans(result.data);
+                    console.log("Service Plans loaded:", result.data);
+                } else {
+                    setServicePlans({ error: result.error });
+                }
             } catch (e) {
                 console.error("Error loading service plans:", e);
                 setServicePlans({ error: e.message });
@@ -63,6 +66,17 @@ export const ServicePlans = () => {
 
         loadServicePlans();
     }, []);
+
+    // If a scheme is selected, show the edit form
+    if (selectedSchemeId) {
+        return (
+            <SchemeEditForm
+                schemeId={selectedSchemeId}
+                companyId={companyId}
+                onBack={() => setSelectedSchemeId(null)}
+            />
+        );
+    }
 
     const getServiceIcon = (plan) => {
         // Check if transport type is air or if name contains "Air"
@@ -140,7 +154,15 @@ export const ServicePlans = () => {
                     const tags = getTags(plan);
 
                     return (
-                        <div key={planId} className="plan-card">
+                        <div
+                            key={planId}
+                            className="plan-card"
+                            onClick={() => {
+                                console.log('Plan clicked:', plan.scheme_id, plan.name);
+                                setSelectedSchemeId(plan.scheme_id);
+                            }}
+                            style={{ cursor: 'pointer' }}
+                        >
                             {/* Icon */}
                             {getServiceIcon(plan)}
 

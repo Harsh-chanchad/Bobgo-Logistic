@@ -12,7 +12,7 @@ export const Home = () => {
     <div className="max-w-[1440px] px-[30px] py-[24px] bg-[#f8f8f8]">
 
       {/* Service Plans Section */}
-      <ServicePlans />
+      <ServicePlans companyId={company_id} />
 
 
       {/* API Cards Grid */}
