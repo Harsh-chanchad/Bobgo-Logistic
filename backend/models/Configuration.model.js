@@ -18,12 +18,21 @@ class ConfigurationModel {
    */
   create(config) {
     return new Promise((resolve, reject) => {
+      // Serialize default_tat to JSON string if it's an object
+      // Note: defaultTatValue is a processed variable (not config.defaultTatValue)
+      // It converts config.default_tat from object to JSON string for database storage
+      const defaultTatValue = config.default_tat
+        ? typeof config.default_tat === "string"
+          ? config.default_tat
+          : JSON.stringify(config.default_tat)
+        : null;
+
       const sql = `
         INSERT INTO Configurations (
           fynd_company_id, company_name, street_address, local_area,
           city, zone, country, country_code, delivery_partner_URL,
-          delivery_partner_API_token, shipment_declared_value, shipment_handling_time
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          delivery_partner_API_token, default_tat, shipment_declared_value, shipment_handling_time
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `;
 
       this.db.run(
@@ -39,6 +48,7 @@ class ConfigurationModel {
           config.country_code,
           config.delivery_partner_URL,
           config.delivery_partner_API_token,
+          defaultTatValue,
           config.shipment_declared_value || 0,
           config.shipment_handling_time || 2,
         ],
@@ -64,6 +74,15 @@ class ConfigurationModel {
         if (err) {
           reject(err);
         } else {
+          // Parse default_tat from JSON string to object
+          if (row && row.default_tat) {
+            try {
+              row.default_tat = JSON.parse(row.default_tat);
+            } catch (e) {
+              // If parsing fails, keep as string or set to null
+              console.warn("Failed to parse default_tat JSON:", e);
+            }
+          }
           resolve(row);
         }
       });
@@ -81,7 +100,18 @@ class ConfigurationModel {
         if (err) {
           reject(err);
         } else {
-          resolve(rows);
+          // Parse default_tat from JSON string to object for each row
+          const parsedRows = rows.map((row) => {
+            if (row.default_tat) {
+              try {
+                row.default_tat = JSON.parse(row.default_tat);
+              } catch (e) {
+                console.warn("Failed to parse default_tat JSON:", e);
+              }
+            }
+            return row;
+          });
+          resolve(parsedRows);
         }
       });
     });
@@ -92,8 +122,17 @@ class ConfigurationModel {
    */
   update(fynd_company_id, updates) {
     return new Promise((resolve, reject) => {
-      const fields = Object.keys(updates);
-      const values = Object.values(updates);
+      // Serialize default_tat to JSON string if it's an object
+      const processedUpdates = { ...updates };
+      if (processedUpdates.default_tat) {
+        processedUpdates.default_tat =
+          typeof processedUpdates.default_tat === "string"
+            ? processedUpdates.default_tat
+            : JSON.stringify(processedUpdates.default_tat);
+      }
+
+      const fields = Object.keys(processedUpdates);
+      const values = Object.values(processedUpdates);
 
       const setClause = fields.map((field) => `${field} = ?`).join(", ");
       const sql = `

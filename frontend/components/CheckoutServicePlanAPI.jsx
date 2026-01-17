@@ -1,26 +1,69 @@
 import React, { useState } from "react";
+import { useParams } from "react-router-dom";
 import axios from "axios";
 import urlJoin from "url-join";
 import loaderGif from "../public/assets/loader.gif";
 
 const EXAMPLE_MAIN_URL = window.location.origin;
 
-export const CheckoutServicePlanAPI = () => {
+export const CheckoutServicePlanAPI = ({ companyId: propCompanyId }) => {
+    const { company_id: routeCompanyId } = useParams();
+    const companyId = propCompanyId || routeCompanyId;
+
     const [servicePlan, setServicePlan] = useState(null);
     const [planLoading, setPlanLoading] = useState(false);
 
     const fetchServicePlan = async () => {
+        if (!companyId) {
+            setServicePlan({ error: "Company ID is required" });
+            return;
+        }
+
         setPlanLoading(true);
         setServicePlan(null);
         try {
+            // Sample delivery address and items - in production, these would come from checkout form
+            const requestBody = {
+                delivery_address: {
+                    company: "Customer Company",
+                    street_address: "123 Customer Street",
+                    local_area: "Customer Area",
+                    city: "Johannesburg",
+                    zone: "GP",
+                    country: "ZA",
+                    code: "2000",
+                },
+                items: [
+                    {
+                        description: "Sample Product",
+                        price: 200,
+                        quantity: 1,
+                        length_cm: 17,
+                        width_cm: 8,
+                        height_cm: 5,
+                        weight_kg: 0.5,
+                    },
+                ],
+            };
+
             const { data } = await axios.post(
-                urlJoin(EXAMPLE_MAIN_URL, "/api/checkout/getServicePlan")
+                urlJoin(EXAMPLE_MAIN_URL, "/api/checkout/getServicePlan"),
+                requestBody,
+                {
+                    headers: {
+                        "x-company-id": companyId,
+                        "Content-Type": "application/json",
+                    },
+                }
             );
             setServicePlan(data);
             console.log("Service Plan Response:", data);
         } catch (e) {
             console.error("Error fetching service plan:", e);
-            setServicePlan({ error: e.message });
+            setServicePlan({
+                error: e.response?.data?.message || e.message,
+                details: e.response?.data
+            });
         } finally {
             setPlanLoading(false);
         }
@@ -48,8 +91,8 @@ export const CheckoutServicePlanAPI = () => {
                 onClick={fetchServicePlan}
                 disabled={planLoading}
                 className={`w-full py-3 px-5 rounded-lg text-base font-semibold transition-all mb-5 ${planLoading
-                        ? "bg-gray-400 cursor-not-allowed opacity-70"
-                        : "bg-blue-600 text-white hover:bg-blue-700"
+                    ? "bg-gray-400 cursor-not-allowed opacity-70"
+                    : "bg-blue-600 text-white hover:bg-blue-700"
                     }`}
             >
                 {planLoading ? (

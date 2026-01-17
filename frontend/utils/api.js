@@ -118,6 +118,16 @@ export const api = {
    * @param {Object} updates - { scheme_updates, credentials }
    * @returns {Promise<Object>} Response with success status
    */
+  /**
+   * Saves only default_tat, delivery_partner_API_token, and company_name to Configuration table
+   * @param {string} schemeId - The scheme ID (required for endpoint but not used in backend)
+   * @param {string|number} companyId - Company ID
+   * @param {Object} updates - Object containing default_tat, delivery_partner_API_token, and company_name
+   * @param {Object} updates.default_tat - { min_tat: number, max_tat: number, unit: string }
+   * @param {string} updates.delivery_partner_API_token - Bobgo API token
+   * @param {string} updates.company_name - Company name
+   * @returns {Promise<Object>} Response from backend
+   */
   saveSchemeData: async (schemeId, companyId, updates) => {
     if (!schemeId || !companyId) {
       return {
@@ -398,6 +408,88 @@ export const api = {
       return {
         success: false,
         error: error.response?.data?.message || error.message,
+      };
+    }
+  },
+
+  /**
+   * Updates cart price with selected service plan
+   * @param {string} cartId - Fynd cart ID
+   * @param {string} applicationId - Fynd application ID
+   * @param {Object} servicePlan - Selected service plan object
+   * @param {string|number} companyId - Company ID
+   * @returns {Promise<Object>} Response from backend
+   */
+  updateCartPrice: async (cartId, applicationId, servicePlan, companyId) => {
+    if (!cartId || !applicationId || !servicePlan || !companyId) {
+      return {
+        success: false,
+        error: "cartId, applicationId, servicePlan, and companyId are required",
+      };
+    }
+
+    try {
+      const { data } = await axios.post(
+        urlJoin(MAIN_URL, "/api/checkout/priceadjustment"),
+        {
+          cart_id: cartId,
+          application_id: applicationId,
+          service_plan: servicePlan,
+        },
+        {
+          headers: {
+            "x-company-id": companyId,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+      return data;
+    } catch (error) {
+      console.error("Error updating cart price:", error);
+      return {
+        success: false,
+        error: error.response?.data?.message || error.message,
+        details: error.response?.data,
+      };
+    }
+  },
+
+  /**
+   * Gets service plans for checkout
+   * @param {Object} deliveryAddress - Delivery address object
+   * @param {Array} items - Array of items
+   * @param {string|number} companyId - Company ID
+   * @returns {Promise<Object>} Response containing service plans
+   */
+  getServicePlans: async (deliveryAddress, items, companyId) => {
+    if (!deliveryAddress || !items || !companyId) {
+      return {
+        success: false,
+        error: "deliveryAddress, items, and companyId are required",
+      };
+    }
+
+    try {
+      const { data } = await axios.post(
+        urlJoin(MAIN_URL, "/api/checkout/getServicePlan"),
+        {
+          delivery_address: deliveryAddress,
+          items: items,
+        },
+        {
+          headers: {
+            "x-company-id": companyId,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+      return data;
+    } catch (error) {
+      console.error("Error fetching service plans:", error);
+      return {
+        success: false,
+        error: error.response?.data?.message || error.message,
+        details: error.response?.data,
       };
     }
   },

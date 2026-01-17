@@ -24,6 +24,7 @@ const createTableSQL = `
     country_code VARCHAR(10),
     delivery_partner_URL TEXT,
     delivery_partner_API_token TEXT,
+    default_tat TEXT,
     shipment_declared_value DECIMAL(10, 2) DEFAULT 0,
     shipment_handling_time INTEGER DEFAULT 2,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -41,5 +42,8 @@ db.run(createTableSQL, (err) => {
 });
 
 app.listen(port, () => {
-  console.log(`Example app listening at http://localhost:${port}`);
+  console.log(`🚀 Backend server listening at http://localhost:${port}`);
+  console.log(`📡 IMPORTANT: Make sure ngrok is forwarding to port ${port}`);
+  console.log(`   Current ngrok should be: ngrok http ${port}`);
+  console.log(`   NOT the frontend port!`);
 });

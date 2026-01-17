@@ -7,6 +7,7 @@
 const express = require("express");
 const cookieParser = require("cookie-parser");
 const bodyParser = require("body-parser");
+const cors = require("cors");
 const path = require("path");
 const serveStatic = require("serve-static");
 const { readFileSync } = require("fs");
@@ -32,13 +33,47 @@ const STATIC_PATH =
 const app = express();
 
 // Middleware
+// CORS - Allow all origins
+app.options("*", cors());
+app.use(
+  cors({
+    origin: "*",
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+    allowedHeaders: [
+      "Content-Type",
+      "Authorization",
+      "x-company-id",
+      "X-Requested-With",
+    ],
+    credentials: false,
+  })
+);
+
 app.use(cookieParser("ext.session"));
 app.use(bodyParser.json({ limit: "2mb" }));
 app.use(serveStatic(STATIC_PATH, { index: false }));
 
+// Request logging middleware for debugging - logs ALL incoming requests
+app.use((req, res, next) => {
+  console.log(`\n🌐 Incoming Request: [${req.method}] ${req.path}`);
+  console.log(`   URL: ${req.url}`);
+  console.log(`   Headers:`, {
+    "x-company-id": req.headers["x-company-id"],
+    "content-type": req.headers["content-type"],
+  });
+  if (req.body && Object.keys(req.body).length > 0) {
+    console.log(`   Body:`, JSON.stringify(req.body, null, 2));
+  }
+  next();
+});
+
 // Mount webhook routes BEFORE FDK handler to prevent route interception
 app.use("/tracking/updated", trackingUpdatedRouter);
 app.use("/fulfillment/created", fulfillmentCreatedRouter);
+
+// API routes - Mount BEFORE FDK handler to prevent route interception
+app.use("/api/checkout", checkoutRatesRouter);
+app.use("/api/configurations", configurationRouter);
 
 // FDK extension handler
 app.use("/", fdkExtension.fdkHandler);
@@ -57,10 +92,7 @@ app.use("/api/webhook-events", async function (req, res) {
 
 const platformApiRoutes = fdkExtension.platformApiRoutes;
 const partnerApiRoutes = fdkExtension.partnerApiRoutes || express.Router();
-
-// API routes
-app.use("/api/checkout", checkoutRatesRouter);
-app.use("/api/configurations", configurationRouter);
+// Additional API routes
 app.use("/api", platformApiRoutes);
 app.use("/apipartner", partnerApiRoutes);
 app.use("/apibasic", basicRouter);

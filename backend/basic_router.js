@@ -140,16 +140,60 @@ basicRouter.get("/scheme/:schemeId", async function view(req, res, next) {
     const configData = await configModel.getByCompanyId(headerCompanyId);
     configModel.close();
 
-    // 3. Merge scheme + configuration data
+    // 3. Merge default_tat: Database has priority over scheme
+    let mergedDefaultTat = scheme.default_tat || null;
+    if (configData && configData.default_tat) {
+      // Database default_tat has priority
+      // Database stores: { min_tat, max_tat, unit }
+      // Scheme expects: { enabled: true, tat: { min, max, unit } }
+      const dbTat = configData.default_tat;
+      mergedDefaultTat = {
+        enabled: true,
+        tat: {
+          min: dbTat.min_tat || dbTat.min || 0,
+          max: dbTat.max_tat || dbTat.max || 0,
+          unit: dbTat.unit || "days",
+        },
+      };
+    } else if (scheme.default_tat) {
+      // Use scheme default_tat if database doesn't have it
+      mergedDefaultTat = scheme.default_tat;
+    }
+
+    // 4. Merge scheme + configuration data
     const mergedData = {
       ...scheme,
+      default_tat: mergedDefaultTat,
       credentials: configData
         ? {
-            company_name: configData.company_name,
-            bobgo_token: configData.delivery_partner_API_token,
+            company_name: configData.company_name || "",
+            bobgo_token: configData.delivery_partner_API_token || "",
             webhook_url: `curl -X POST 'https://bobgo-extension.fynd.com/v1.0/webhook/${headerCompanyId}'`,
+            // Include all database fields for form prefilling
+            street_address: configData.street_address || "",
+            local_area: configData.local_area || "",
+            city: configData.city || "",
+            zone: configData.zone || "",
+            country: configData.country || "",
+            country_code: configData.country_code || "",
+            delivery_partner_URL: configData.delivery_partner_URL || "",
+            shipment_declared_value: configData.shipment_declared_value || 0,
+            shipment_handling_time: configData.shipment_handling_time || 2,
           }
-        : null,
+        : {
+            company_name: "",
+            bobgo_token: "",
+            webhook_url: `curl -X POST 'https://bobgo-extension.fynd.com/v1.0/webhook/${headerCompanyId}'`,
+            street_address: "",
+            local_area: "",
+            city: "",
+            zone: "",
+            country: "",
+            country_code: "",
+            delivery_partner_URL: "",
+            shipment_declared_value: 0,
+            shipment_handling_time: 2,
+          },
     };
 
     console.log(`✅ Found scheme: ${scheme.name} (${schemeId})`);
@@ -289,7 +333,9 @@ basicRouter.get("/scheme/:schemeId", async function view(req, res, next) {
 
 /**
  * PUT /scheme/:schemeId
- * Updates a courier partner scheme and its configuration.
+ * Updates all configuration fields in Configuration table.
+ * Accepts all fields from frontend and saves them to database.
+ * Does NOT update scheme via Platform API.
  *
  * @param {Object} req - Express request object with schemeId param and x-company-id header.
  * @param {Object} res - Express response object.
@@ -301,9 +347,20 @@ basicRouter.put("/scheme/:schemeId", async function view(req, res, next) {
   try {
     const { schemeId } = req.params;
     const headerCompanyId = req.headers["x-company-id"];
-    const { scheme_updates, credentials } = req.body;
-
-    console.log("scheme_updates", scheme_updates);
+    const {
+      default_tat,
+      delivery_partner_API_token,
+      company_name,
+      street_address,
+      local_area,
+      city,
+      zone,
+      country,
+      country_code,
+      delivery_partner_URL,
+      shipment_declared_value,
+      shipment_handling_time,
+    } = req.body;
 
     if (!schemeId || !headerCompanyId) {
       return res.status(400).json({
@@ -312,260 +369,78 @@ basicRouter.put("/scheme/:schemeId", async function view(req, res, next) {
       });
     }
 
-    // 1. Update/Create Configuration (if credentials provided)
-    if (credentials) {
-      const ConfigurationModel = require("./models/Configuration.model");
-      const configModel = new ConfigurationModel();
+    // Upsert Configuration with all fields from frontend
+    const ConfigurationModel = require("./models/Configuration.model");
+    const configModel = new ConfigurationModel();
 
-      const configData = {
-        fynd_company_id: headerCompanyId,
-        company_name: credentials.company_name,
-        delivery_partner_API_token: credentials.bobgo_token,
-      };
+    // Get existing config to use as fallback for missing fields
+    const existingConfig = await configModel.getByCompanyId(headerCompanyId);
 
-      await configModel.upsert(configData);
-      configModel.close();
-      console.log(`✅ Configuration saved for company ${headerCompanyId}`);
-    }
+    const configData = {
+      fynd_company_id: headerCompanyId,
+      // Use provided values or fallback to existing or defaults
+      company_name:
+        company_name !== undefined
+          ? company_name
+          : existingConfig?.company_name || "",
+      street_address:
+        street_address !== undefined
+          ? street_address
+          : existingConfig?.street_address || "",
+      local_area:
+        local_area !== undefined
+          ? local_area
+          : existingConfig?.local_area || "",
+      city: city !== undefined ? city : existingConfig?.city || "",
+      zone: zone !== undefined ? zone : existingConfig?.zone || "",
+      country: country !== undefined ? country : existingConfig?.country || "",
+      country_code:
+        country_code !== undefined
+          ? country_code
+          : existingConfig?.country_code || "",
+      delivery_partner_URL:
+        delivery_partner_URL !== undefined
+          ? delivery_partner_URL
+          : existingConfig?.delivery_partner_URL || "",
+      delivery_partner_API_token:
+        delivery_partner_API_token !== undefined
+          ? delivery_partner_API_token
+          : existingConfig?.delivery_partner_API_token || "",
+      default_tat:
+        default_tat !== undefined
+          ? default_tat
+          : existingConfig?.default_tat || null,
+      shipment_declared_value:
+        shipment_declared_value !== undefined
+          ? shipment_declared_value
+          : existingConfig?.shipment_declared_value || 0,
+      shipment_handling_time:
+        shipment_handling_time !== undefined
+          ? shipment_handling_time
+          : existingConfig?.shipment_handling_time || 2,
+    };
 
-    // 2. Update Scheme (if scheme_updates provided)
-    if (scheme_updates) {
-      const platformClient = await fdkExtension.getPlatformClient(
-        headerCompanyId
-      );
+    await configModel.upsert(configData);
+    configModel.close();
 
-      // First, fetch the current scheme to get all existing fields
-      const response =
-        await platformClient.serviceability.getCourierPartnerSchemes({
-          company_id: headerCompanyId,
-          schemeType: "global",
-        });
-
-      const myExtensionId = process.env.EXTENSION_API_KEY;
-      const currentScheme = response.items?.find(
-        (plan) =>
-          plan.scheme_id === schemeId && plan.extension_id === myExtensionId
-      );
-
-      if (!currentScheme) {
-        return res.status(404).json({
-          success: false,
-          message: "Scheme not found",
-        });
-      }
-
-      // Build feature object - merge existing with updates (ONLY boolean flags accepted by Platform API)
-      // Note: ndr_attempts, status_updates, qc_shipment_item_quantity, non_qc_shipment_item_quantity, operation_scheme
-      // are SCHEME-LEVEL fields, NOT feature object fields. The Platform API rejects them in the feature object.
-      const buildFeatureObject = () => {
-        const existingFeatures = currentScheme.feature || {};
-        const updateFeatures = scheme_updates.feature || {};
-
-        // Only boolean feature flags accepted by Platform API
-        const defaultFeatures = {
-          doorstep_qc: false,
-          qr: false,
-          mps: false,
-          ndr: false,
-          dangerous_goods: false,
-          fragile_goods: false,
-          restricted_goods: false,
-          cold_storage_goods: false,
-          doorstep_exchange: false,
-          doorstep_return: false,
-          product_installation: false,
-          openbox_delivery: false,
-          multi_pick_single_drop: false,
-          single_pick_multi_drop: false,
-          multi_pick_multi_drop: false,
-          ewaybill: false,
-        };
-
-        // Fields that are NOT allowed in feature object (they're scheme-level)
-        const schemeOnlyFields = [
-          "ndr_attempts",
-          "status_updates",
-          "operation_scheme",
-          "qc_shipment_item_quantity",
-          "non_qc_shipment_item_quantity",
-        ];
-
-        // Merge: defaults -> existing -> updates (only boolean values)
-        const merged = { ...defaultFeatures };
-
-        // Apply existing boolean features only
-        Object.entries(existingFeatures).forEach(([key, value]) => {
-          if (typeof value === "boolean" && !schemeOnlyFields.includes(key)) {
-            merged[key] = value;
-          }
-        });
-
-        // Apply update boolean features only
-        Object.entries(updateFeatures).forEach(([key, value]) => {
-          if (typeof value === "boolean" && !schemeOnlyFields.includes(key)) {
-            merged[key] = value;
-          }
-        });
-
-        return merged;
-      };
-
-      // Helper to convert gte/lte to gt/lt format for weight fields
-      const convertWeight = (weightObj, currentWeight, defaultWeight) => {
-        const weight = weightObj ?? currentWeight ?? {};
-        return {
-          gt: weight.gte ?? weight.gt ?? defaultWeight.gt,
-          lt: weight.lte ?? weight.lt ?? defaultWeight.lt,
-        };
-      };
-
-      // Transform frontend payload to Platform API format
-      const fdkPayload = {
-        extension_id: process.env.EXTENSION_API_KEY,
-        scheme_id: schemeId,
-        name: scheme_updates.name ?? currentScheme.name ?? "",
-        weight: convertWeight(scheme_updates.weight, currentScheme.weight, {
-          gt: 0.01,
-          lt: 100,
-        }),
-        volumetric_weight: convertWeight(
-          scheme_updates.volumetric_weight,
-          currentScheme.volumetric_weight,
-          { gt: 0.01, lt: 1000 }
-        ),
-        transport_type:
-          scheme_updates.transport_type?.toLowerCase() ??
-          currentScheme.transport_type ??
-          "surface",
-        region:
-          scheme_updates.region ??
-          scheme_updates.feature?.operation_scheme ??
-          currentScheme.region ??
-          currentScheme.feature?.operation_scheme ??
-          "intra-city",
-        delivery_type:
-          scheme_updates.delivery_type ??
-          currentScheme.delivery_type ??
-          "one-day",
-        payment_mode: scheme_updates.payment_mode ??
-          currentScheme.payment_mode ?? ["COD", "PREPAID"],
-        stage: scheme_updates.stage ?? currentScheme.stage ?? "enabled",
-        status_updates:
-          scheme_updates.feature?.status_updates ??
-          scheme_updates.status_updates ??
-          currentScheme.feature?.status_updates ??
-          currentScheme.status_updates ??
-          "real-time",
-        ndr_attempts:
-          scheme_updates.feature?.ndr_attempts ??
-          scheme_updates.ndr_attempts ??
-          currentScheme.feature?.ndr_attempts ??
-          currentScheme.ndr_attempts ??
-          1,
-        qc_shipment_item_quantity:
-          scheme_updates.feature?.qc_shipment_item_quantity ??
-          scheme_updates.qc_shipment_item_quantity ??
-          currentScheme.feature?.qc_shipment_item_quantity ??
-          currentScheme.qc_shipment_item_quantity ??
-          1,
-        non_qc_shipment_item_quantity:
-          scheme_updates.feature?.non_qc_shipment_item_quantity ??
-          scheme_updates.non_qc_shipment_item_quantity ??
-          currentScheme.feature?.non_qc_shipment_item_quantity ??
-          currentScheme.non_qc_shipment_item_quantity ??
-          1,
-        default_tat: {
-          enabled:
-            scheme_updates.default_tat?.enabled ??
-            currentScheme.default_tat?.enabled ??
-            false,
-          tat: {
-            min:
-              scheme_updates.default_tat?.tat?.min ??
-              currentScheme.default_tat?.tat?.min ??
-              0,
-            max:
-              scheme_updates.default_tat?.tat?.max ??
-              currentScheme.default_tat?.tat?.max ??
-              0,
-            unit:
-              scheme_updates.default_tat?.tat?.unit ??
-              currentScheme.default_tat?.tat?.unit ??
-              "days",
-          },
-        },
-        // Handle pickup_cutoff - only include if provided
-        ...(scheme_updates.pickup_cutoff || currentScheme.pickup_cutoff
-          ? {
-              pickup_cutoff: {
-                forward:
-                  scheme_updates.pickup_cutoff?.forward ??
-                  currentScheme.pickup_cutoff?.forward ??
-                  "",
-                reverse:
-                  scheme_updates.pickup_cutoff?.reverse ??
-                  currentScheme.pickup_cutoff?.reverse ??
-                  "",
-                timezone:
-                  scheme_updates.pickup_cutoff?.timezone ??
-                  currentScheme.pickup_cutoff?.timezone ??
-                  "",
-              },
-            }
-          : {}),
-        feature: buildFeatureObject(),
-      };
-
-      // Validate required fields before sending
-      if (!fdkPayload.name || fdkPayload.name.trim() === "") {
-        return res.status(400).json({
-          success: false,
-          message: "Name is required and cannot be empty",
-        });
-      }
-
-      console.log(
-        `📝 Updating scheme via Platform API:`,
-        JSON.stringify(fdkPayload, null, 2)
-      );
-
-      // Update scheme via Platform Client API
-      try {
-        const updateResponse =
-          await platformClient.serviceability.updateCourierPartnerScheme({
-            schemeId: schemeId,
-            body: fdkPayload,
-          });
-        console.log(`✅ Scheme updated: ${schemeId}`);
-        console.log(
-          `📋 Update response:`,
-          JSON.stringify(updateResponse, null, 2)
-        );
-      } catch (apiError) {
-        const errorDetails = apiError.response?.data || apiError.message;
-        const errorMessage =
-          typeof errorDetails === "object"
-            ? JSON.stringify(errorDetails, null, 2)
-            : errorDetails;
-        console.error(`❌ Platform API Error:`, errorMessage);
-        console.error(
-          `❌ Request body that failed:`,
-          JSON.stringify(fdkPayload, null, 2)
-        );
-        return res.status(apiError.response?.status || 500).json({
-          success: false,
-          message: "Failed to save data",
-          error: errorMessage,
-        });
-      }
-    }
+    console.log(`✅ Configuration updated for company ${headerCompanyId}`);
+    console.log(`   - company_name:`, configData.company_name);
+    console.log(`   - default_tat:`, default_tat);
+    console.log(
+      `   - delivery_partner_API_token:`,
+      delivery_partner_API_token ? "***" : "empty"
+    );
+    console.log(`   - delivery_partner_URL:`, configData.delivery_partner_URL);
+    console.log(
+      `   - Address: ${configData.street_address}, ${configData.city}, ${configData.country}`
+    );
 
     res.json({
       success: true,
-      message: "Data saved successfully",
+      message: "Configuration saved successfully",
     });
   } catch (err) {
-    console.error("Error saving:", err);
+    console.error("Error saving configuration:", err);
     console.log(JSON.stringify(err));
     res.status(500).json({
       success: false,

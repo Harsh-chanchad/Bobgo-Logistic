@@ -45,7 +45,19 @@ export const SchemeEditForm = ({ schemeId, companyId, onBack }) => {
         credentials: {
             companyName: "",
             bobgoToken: "",
-            webhookUrl: ""
+            webhookUrl: "",
+            // Address fields
+            streetAddress: "",
+            localArea: "",
+            city: "",
+            zone: "",
+            country: "",
+            countryCode: "",
+            // API URL
+            deliveryPartnerUrl: "",
+            // Shipment values
+            shipmentDeclaredValue: 0,
+            shipmentHandlingTime: 2
         },
         deliveryCapabilities: {
             features: {}
@@ -108,7 +120,19 @@ export const SchemeEditForm = ({ schemeId, companyId, onBack }) => {
                             companyName: schemeData.credentials?.company_name || "",
                             bobgoToken: schemeData.credentials?.bobgo_token || "",
                             webhookUrl: schemeData.credentials?.webhook_url ||
-                                `curl -X POST 'https://bobgo-extension.fynd.com/v1.0/webhook/${companyId}'`
+                                `curl -X POST 'https://bobgo-extension.fynd.com/v1.0/webhook/${companyId}'`,
+                            // Address fields from database
+                            streetAddress: schemeData.credentials?.street_address || "",
+                            localArea: schemeData.credentials?.local_area || "",
+                            city: schemeData.credentials?.city || "",
+                            zone: schemeData.credentials?.zone || "",
+                            country: schemeData.credentials?.country || "",
+                            countryCode: schemeData.credentials?.country_code || "",
+                            // API URL
+                            deliveryPartnerUrl: schemeData.credentials?.delivery_partner_URL || "",
+                            // Shipment values
+                            shipmentDeclaredValue: schemeData.credentials?.shipment_declared_value || 0,
+                            shipmentHandlingTime: schemeData.credentials?.shipment_handling_time || 2
                         },
                         deliveryCapabilities: {
                             features: {
@@ -126,6 +150,7 @@ export const SchemeEditForm = ({ schemeId, companyId, onBack }) => {
                             timezone: schemeData.pickup_cutoff?.timezone || schemeData.timezone || ""
                         },
                         turnAroundTime: {
+                            // Database has priority - GET endpoint already merges database > scheme
                             useDefault: schemeData.default_tat?.enabled !== false,
                             min: schemeData.default_tat?.tat?.min?.toString() || "",
                             max: schemeData.default_tat?.tat?.max?.toString() || "",
@@ -245,96 +270,34 @@ export const SchemeEditForm = ({ schemeId, companyId, onBack }) => {
         return tags.length > 0 ? tags : ["No capabilities configured"];
     };
 
-    // Handle save
+    // Handle save - save all configuration fields to database
     const handleSave = async () => {
         console.log("Saving form data:", formData);
 
         setLoading(true);
 
         try {
-            // Ensure scheme data is loaded before saving
-            if (!scheme) {
-                alert("❌ Scheme data not loaded. Please wait and try again.");
-                setLoading(false);
-                return;
-            }
-
-            // Build scheme updates - include all fields that might have changed
-            // Backend will merge with existing scheme data to ensure all required fields are present
-            const features = formData.deliveryCapabilities.features || {};
-
-            // Extract scheme-level fields from features (if they exist)
-            const operationScheme = features.operation_scheme || scheme.region;
-            const shippingSpeeds = features.shipping_speeds || [];
-            const deliveryType = shippingSpeeds.length > 0 ? shippingSpeeds[0] : scheme.delivery_type;
-
-            // Remove scheme-level fields from features object before sending to backend
-            const { transport_type, shipping_speeds, operation_scheme, cash_on_delivery, ...cleanFeatures } = features;
-
-            // Build payment_mode array based on cash_on_delivery feature
-            // PREPAID is always included, COD is only included if cash_on_delivery is true
-            const cashOnDeliveryEnabled = cash_on_delivery !== undefined
-                ? cash_on_delivery
-                : (scheme.payment_mode?.includes("COD") || false);
-
-            const paymentMode = ["PREPAID"];
-            if (cashOnDeliveryEnabled) {
-                paymentMode.push("COD");
-            }
-
-            // Parse weight values - only include if they are valid numbers > 0
-            const deadWeightMin = parseFloat(formData.serviceableWeight.deadWeight.min);
-            const deadWeightMax = parseFloat(formData.serviceableWeight.deadWeight.max);
-            const volumetricWeightMin = parseFloat(formData.serviceableWeight.volumetricWeight.min);
-            const volumetricWeightMax = parseFloat(formData.serviceableWeight.volumetricWeight.max);
-
+            // Send all configuration fields to backend
             const updates = {
-                scheme_updates: {
-                    // Fields that can be edited
-                    name: formData.planDetails.customPlanName,
-                    transport_type: formData.planDetails.planType,
-                    // Only include weight if valid values are provided
-                    ...(deadWeightMin > 0 || deadWeightMax > 0 ? {
-                        weight: {
-                            gte: deadWeightMin || 0,
-                            lte: deadWeightMax || 0,
-                        }
-                    } : {}),
-                    // Only include volumetric_weight if valid values are provided
-                    ...(volumetricWeightMin > 0 || volumetricWeightMax > 0 ? {
-                        volumetric_weight: {
-                            gte: volumetricWeightMin || 0,
-                            lte: volumetricWeightMax || 0
-                        }
-                    } : {}),
-                    feature: cleanFeatures, // Only send clean features without scheme-level fields
-                    // Include existing scheme fields (not editable but required by API)
-                    region: operationScheme || scheme.region,
-                    delivery_type: deliveryType || scheme.delivery_type,
-                    payment_mode: paymentMode,
-                    // Optional fields from current scheme (can be overridden by feature object)
-                    ndr_attempts: cleanFeatures.ndr_attempts !== undefined ? cleanFeatures.ndr_attempts : scheme.ndr_attempts,
-                    qc_shipment_item_quantity: cleanFeatures.qc_shipment_item_quantity !== undefined ? cleanFeatures.qc_shipment_item_quantity : scheme.qc_shipment_item_quantity,
-                    non_qc_shipment_item_quantity: cleanFeatures.non_qc_shipment_item_quantity !== undefined ? cleanFeatures.non_qc_shipment_item_quantity : scheme.non_qc_shipment_item_quantity,
-                    // New Phase 3 fields
-                    pickup_cutoff: {
-                        forward: formData.pickupCutoff.forward,
-                        reverse: formData.pickupCutoff.reverse,
-                        timezone: formData.pickupCutoff.timezone
-                    },
-                    default_tat: {
-                        enabled: formData.turnAroundTime.useDefault,
-                        tat: {
-                            min: parseInt(formData.turnAroundTime.min) || 0,
-                            max: parseInt(formData.turnAroundTime.max) || 0,
-                            unit: formData.turnAroundTime.unit
-                        }
-                    }
+                default_tat: {
+                    min_tat: parseInt(formData.turnAroundTime.min) || 1,
+                    max_tat: parseInt(formData.turnAroundTime.max) || 3,
+                    unit: formData.turnAroundTime.unit || "days"
                 },
-                credentials: {
-                    company_name: formData.credentials.companyName,
-                    bobgo_token: formData.credentials.bobgoToken
-                }
+                delivery_partner_API_token: formData.credentials.bobgoToken || "",
+                company_name: formData.credentials.companyName || "",
+                // Address fields
+                street_address: formData.credentials.streetAddress || "",
+                local_area: formData.credentials.localArea || "",
+                city: formData.credentials.city || "",
+                zone: formData.credentials.zone || "",
+                country: formData.credentials.country || "",
+                country_code: formData.credentials.countryCode || "",
+                // API URL
+                delivery_partner_URL: formData.credentials.deliveryPartnerUrl || "",
+                // Shipment values
+                shipment_declared_value: parseFloat(formData.credentials.shipmentDeclaredValue) || 0,
+                shipment_handling_time: parseInt(formData.credentials.shipmentHandlingTime) || 2
             };
 
             console.log("Sending updates to backend:", JSON.stringify(updates, null, 2));
@@ -343,7 +306,39 @@ export const SchemeEditForm = ({ schemeId, companyId, onBack }) => {
 
             if (result.success) {
                 alert("✅ Data saved successfully!");
-                // Optionally reload data
+                // Reload data to reflect changes
+                const refreshResult = await api.getSchemeWithConfig(schemeId, companyId);
+                if (refreshResult.success) {
+                    const schemeData = refreshResult.data;
+                    setScheme(schemeData);
+                    // Update form data with refreshed values
+                    setFormData(prev => ({
+                        ...prev,
+                        turnAroundTime: {
+                            useDefault: schemeData.default_tat?.enabled !== false,
+                            min: schemeData.default_tat?.tat?.min?.toString() || "",
+                            max: schemeData.default_tat?.tat?.max?.toString() || "",
+                            unit: schemeData.default_tat?.tat?.unit || "days"
+                        },
+                        credentials: {
+                            companyName: schemeData.credentials?.company_name || prev.credentials.companyName,
+                            bobgoToken: schemeData.credentials?.bobgo_token || prev.credentials.bobgoToken,
+                            webhookUrl: schemeData.credentials?.webhook_url || prev.credentials.webhookUrl,
+                            // Address fields
+                            streetAddress: schemeData.credentials?.street_address || prev.credentials.streetAddress,
+                            localArea: schemeData.credentials?.local_area || prev.credentials.localArea,
+                            city: schemeData.credentials?.city || prev.credentials.city,
+                            zone: schemeData.credentials?.zone || prev.credentials.zone,
+                            country: schemeData.credentials?.country || prev.credentials.country,
+                            countryCode: schemeData.credentials?.country_code || prev.credentials.countryCode,
+                            // API URL
+                            deliveryPartnerUrl: schemeData.credentials?.delivery_partner_URL || prev.credentials.deliveryPartnerUrl,
+                            // Shipment values
+                            shipmentDeclaredValue: schemeData.credentials?.shipment_declared_value || prev.credentials.shipmentDeclaredValue,
+                            shipmentHandlingTime: schemeData.credentials?.shipment_handling_time || prev.credentials.shipmentHandlingTime
+                        }
+                    }));
+                }
             } else {
                 const errorMsg = result.error || "Unknown error";
                 console.error("Save failed:", errorMsg);
@@ -424,9 +419,11 @@ export const SchemeEditForm = ({ schemeId, companyId, onBack }) => {
                                 type="text"
                                 className="scheme-edit-form__input"
                                 value={formData.planDetails.customPlanName}
-                                onChange={(e) => handleInputChange('planDetails', 'customPlanName', e.target.value)}
+                                // onChange={(e) => handleInputChange('planDetails', 'customPlanName', e.target.value)}
+                                readOnly
                                 maxLength={maxPlanNameLength}
                                 placeholder="Enter plan name"
+                                style={{ backgroundColor: "#f5f5f5" }}
                             />
                             <div className="scheme-edit-form__helper-row">
                                 <span className="scheme-edit-form__display-name">
@@ -446,7 +443,9 @@ export const SchemeEditForm = ({ schemeId, companyId, onBack }) => {
                             <select
                                 className="scheme-edit-form__select"
                                 value={formData.planDetails.planType}
-                                onChange={(e) => handleInputChange('planDetails', 'planType', e.target.value)}
+                                // onChange={(e) => handleInputChange('planDetails', 'planType', e.target.value)}
+
+                                style={{ backgroundColor: "#f5f5f5", cursor: "not-allowed" }}
                             >
                                 <option value="surface">Surface</option>
                                 <option value="air">Air</option>
@@ -478,8 +477,10 @@ export const SchemeEditForm = ({ schemeId, companyId, onBack }) => {
                                     step="0.01"
                                     className="scheme-edit-form__input"
                                     value={formData.serviceableWeight.deadWeight.min}
-                                    onChange={(e) => handleInputChange('serviceableWeight', 'deadWeight', e.target.value, 'min')}
+                                    // onChange={(e) => handleInputChange('serviceableWeight', 'deadWeight', e.target.value, 'min')}
+                                    readOnly
                                     placeholder="Enter Minimum Weight"
+                                    style={{ backgroundColor: "#f5f5f5" }}
                                 />
                             </div>
                             <div className="scheme-edit-form__field-group">
@@ -492,8 +493,10 @@ export const SchemeEditForm = ({ schemeId, companyId, onBack }) => {
                                     step="0.01"
                                     className="scheme-edit-form__input"
                                     value={formData.serviceableWeight.deadWeight.max}
-                                    onChange={(e) => handleInputChange('serviceableWeight', 'deadWeight', e.target.value, 'max')}
+                                    // onChange={(e) => handleInputChange('serviceableWeight', 'deadWeight', e.target.value, 'max')}
+                                    readOnly
                                     placeholder="Enter Maximum Weight"
+                                    style={{ backgroundColor: "#f5f5f5" }}
                                 />
                             </div>
                         </div>
@@ -513,8 +516,10 @@ export const SchemeEditForm = ({ schemeId, companyId, onBack }) => {
                                     step="0.01"
                                     className="scheme-edit-form__input"
                                     value={formData.serviceableWeight.volumetricWeight.min}
-                                    onChange={(e) => handleInputChange('serviceableWeight', 'volumetricWeight', e.target.value, 'min')}
+                                    // onChange={(e) => handleInputChange('serviceableWeight', 'volumetricWeight', e.target.value, 'min')}
+                                    readOnly
                                     placeholder="Enter Minimum Weight"
+                                    style={{ backgroundColor: "#f5f5f5" }}
                                 />
                             </div>
                             <div className="scheme-edit-form__field-group">
@@ -527,8 +532,10 @@ export const SchemeEditForm = ({ schemeId, companyId, onBack }) => {
                                     step="0.01"
                                     className="scheme-edit-form__input"
                                     value={formData.serviceableWeight.volumetricWeight.max}
-                                    onChange={(e) => handleInputChange('serviceableWeight', 'volumetricWeight', e.target.value, 'max')}
+                                    // onChange={(e) => handleInputChange('serviceableWeight', 'volumetricWeight', e.target.value, 'max')}
+                                    readOnly
                                     placeholder="Enter Maximum Weight"
+                                    style={{ backgroundColor: "#f5f5f5" }}
                                 />
                             </div>
                         </div>
@@ -597,6 +604,140 @@ export const SchemeEditForm = ({ schemeId, companyId, onBack }) => {
                             </button>
                         </div>
                     </div>
+
+                    {/* Delivery Partner URL */}
+                    <div className="scheme-edit-form__field-group">
+                        <label className="scheme-edit-form__label">Delivery Partner URL</label>
+                        <input
+                            type="text"
+                            className="scheme-edit-form__input"
+                            value={formData.credentials.deliveryPartnerUrl}
+                            onChange={(e) => handleInputChange('credentials', 'deliveryPartnerUrl', e.target.value)}
+                            placeholder="https://api.sandbox.bobgo.co.za"
+                        />
+                    </div>
+                </div>
+
+                {/* Address Information Section */}
+                <div className="scheme-edit-form__section">
+                    <h2 className="scheme-edit-form__section-title">Address Information</h2>
+                    <p className="scheme-edit-form__section-description">
+                        Company address details
+                    </p>
+
+                    {/* Street Address */}
+                    <div className="scheme-edit-form__field-group">
+                        <label className="scheme-edit-form__label">Street Address</label>
+                        <input
+                            type="text"
+                            className="scheme-edit-form__input"
+                            value={formData.credentials.streetAddress}
+                            onChange={(e) => handleInputChange('credentials', 'streetAddress', e.target.value)}
+                            placeholder="Enter street address"
+                        />
+                    </div>
+
+                    <div className="scheme-edit-form__row scheme-edit-form__row--two-columns">
+                        {/* Local Area */}
+                        <div className="scheme-edit-form__field-group">
+                            <label className="scheme-edit-form__label">Local Area</label>
+                            <input
+                                type="text"
+                                className="scheme-edit-form__input"
+                                value={formData.credentials.localArea}
+                                onChange={(e) => handleInputChange('credentials', 'localArea', e.target.value)}
+                                placeholder="Enter local area"
+                            />
+                        </div>
+
+                        {/* City */}
+                        <div className="scheme-edit-form__field-group">
+                            <label className="scheme-edit-form__label">City</label>
+                            <input
+                                type="text"
+                                className="scheme-edit-form__input"
+                                value={formData.credentials.city}
+                                onChange={(e) => handleInputChange('credentials', 'city', e.target.value)}
+                                placeholder="Enter city"
+                            />
+                        </div>
+                    </div>
+
+                    <div className="scheme-edit-form__row scheme-edit-form__row--three-columns">
+                        {/* Zone */}
+                        <div className="scheme-edit-form__field-group">
+                            <label className="scheme-edit-form__label">Zone</label>
+                            <input
+                                type="text"
+                                className="scheme-edit-form__input"
+                                value={formData.credentials.zone}
+                                onChange={(e) => handleInputChange('credentials', 'zone', e.target.value)}
+                                placeholder="Enter zone"
+                            />
+                        </div>
+
+                        {/* Country */}
+                        <div className="scheme-edit-form__field-group">
+                            <label className="scheme-edit-form__label">Country</label>
+                            <input
+                                type="text"
+                                className="scheme-edit-form__input"
+                                value={formData.credentials.country}
+                                onChange={(e) => handleInputChange('credentials', 'country', e.target.value)}
+                                placeholder="Enter country"
+                            />
+                        </div>
+
+                        {/* Country Code */}
+                        <div className="scheme-edit-form__field-group">
+                            <label className="scheme-edit-form__label">Country Code</label>
+                            <input
+                                type="text"
+                                className="scheme-edit-form__input"
+                                value={formData.credentials.countryCode}
+                                onChange={(e) => handleInputChange('credentials', 'countryCode', e.target.value)}
+                                placeholder="e.g., ZA, IN, US"
+                                maxLength={10}
+                            />
+                        </div>
+                    </div>
+                </div>
+
+                {/* Shipment Configuration Section */}
+                <div className="scheme-edit-form__section">
+                    <h2 className="scheme-edit-form__section-title">Shipment Configuration</h2>
+                    <p className="scheme-edit-form__section-description">
+                        Default shipment values
+                    </p>
+
+                    <div className="scheme-edit-form__row scheme-edit-form__row--two-columns">
+                        {/* Shipment Declared Value */}
+                        <div className="scheme-edit-form__field-group">
+                            <label className="scheme-edit-form__label">Shipment Declared Value</label>
+                            <input
+                                type="number"
+                                className="scheme-edit-form__input"
+                                value={formData.credentials.shipmentDeclaredValue}
+                                onChange={(e) => handleInputChange('credentials', 'shipmentDeclaredValue', e.target.value)}
+                                placeholder="0.00"
+                                step="0.01"
+                                min="0"
+                            />
+                        </div>
+
+                        {/* Shipment Handling Time */}
+                        <div className="scheme-edit-form__field-group">
+                            <label className="scheme-edit-form__label">Shipment Handling Time (days)</label>
+                            <input
+                                type="number"
+                                className="scheme-edit-form__input"
+                                value={formData.credentials.shipmentHandlingTime}
+                                onChange={(e) => handleInputChange('credentials', 'shipmentHandlingTime', e.target.value)}
+                                placeholder="2"
+                                min="0"
+                            />
+                        </div>
+                    </div>
                 </div>
 
                 {/* Delivery Service Capabilities Section */}
@@ -649,7 +790,7 @@ export const SchemeEditForm = ({ schemeId, companyId, onBack }) => {
                             <input
                                 type="checkbox"
                                 checked={formData.serviceableAreas.autoUpdate}
-                                onChange={(e) => handleInputChange('serviceableAreas', 'autoUpdate', e.target.checked)}
+                            // onChange={(e) => handleInputChange('serviceableAreas', 'autoUpdate', e.target.checked)}
                             />
                             <span className="toggle-slider"></span>
                         </label>
@@ -670,7 +811,8 @@ export const SchemeEditForm = ({ schemeId, companyId, onBack }) => {
                             <select
                                 className="scheme-edit-form__select"
                                 value={formData.pickupCutoff.forward}
-                                onChange={(e) => handleInputChange('pickupCutoff', 'forward', e.target.value)}
+                                // onChange={(e) => handleInputChange('pickupCutoff', 'forward', e.target.value)}
+                                style={{ backgroundColor: "#f5f5f5" }}
                             >
                                 <option value="">Select Time</option>
                                 {generateTimeOptions().map((option) => (
@@ -687,7 +829,9 @@ export const SchemeEditForm = ({ schemeId, companyId, onBack }) => {
                             <select
                                 className="scheme-edit-form__select"
                                 value={formData.pickupCutoff.reverse}
-                                onChange={(e) => handleInputChange('pickupCutoff', 'reverse', e.target.value)}
+                                // onChange={(e) => handleInputChange('pickupCutoff', 'reverse', e.target.value)}
+                                disabled
+                                style={{ backgroundColor: "#f5f5f5" }}
                             >
                                 <option value="">Select Time</option>
                                 {generateTimeOptions().map((option) => (
@@ -704,7 +848,9 @@ export const SchemeEditForm = ({ schemeId, companyId, onBack }) => {
                             <select
                                 className="scheme-edit-form__select"
                                 value={formData.pickupCutoff.timezone}
-                                onChange={(e) => handleInputChange('pickupCutoff', 'timezone', e.target.value)}
+                                // onChange={(e) => handleInputChange('pickupCutoff', 'timezone', e.target.value)}
+                                disabled
+                                style={{ backgroundColor: "#f5f5f5" }}
                             >
                                 <option value="">Select timezone</option>
                                 {timezones.map((tz) => (

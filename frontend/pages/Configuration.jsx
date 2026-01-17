@@ -192,10 +192,10 @@ export const Configuration = () => {
                                     ? "#721c24"
                                     : "#0c5460",
                         border: `1px solid ${message.type === "success"
-                                ? "#c3e6cb"
-                                : message.type === "error"
-                                    ? "#f5c6cb"
-                                    : "#bee5eb"
+                            ? "#c3e6cb"
+                            : message.type === "error"
+                                ? "#f5c6cb"
+                                : "#bee5eb"
                             }`,
                     }}
                 >

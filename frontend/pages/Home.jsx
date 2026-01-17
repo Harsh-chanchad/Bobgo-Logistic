@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom";
 import { ServicePlans } from "../components/ServicePlans";
 import { CourierSchemesAPI } from "../components/CourierSchemesAPI";
 import { CheckoutServicePlanAPI } from "../components/CheckoutServicePlanAPI";
+import { CheckoutPriceAdjustment } from "../components/CheckoutPriceAdjustment";
 import { CreateSchemeAPI } from "../components/CreateSchemeAPI";
 
 export const Home = () => {
@@ -14,10 +15,14 @@ export const Home = () => {
       {/* Service Plans Section */}
       <ServicePlans companyId={company_id} />
 
+      {/* Checkout Price Adjustment - Main Feature */}
+      {/* <div className="mb-10">
+        <CheckoutPriceAdjustment companyId={company_id} />
+      </div> */}
 
       {/* API Cards Grid */}
       {/* <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-10">
-        <CourierSchemesAPI />
+     
         <CheckoutServicePlanAPI />
       </div> */}
 
